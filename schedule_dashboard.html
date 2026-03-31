@@ -664,16 +664,30 @@ async function loadFromSP(){
   if(!result.content){ console.log('GH sync: no data file yet'); return false; }
   try {
     const data = result.content;
+    const ghWeeks = data.weeks || [];
+    // Safety check — never load from GitHub if it has no weeks
+    if(!ghWeeks.length){
+      console.warn('GH sync: GitHub file has no weeks — keeping local data');
+      return false;
+    }
+    // Only use GitHub data if it has same or more weeks than local
+    const localRaw = localStorage.getItem('sw');
+    const localWeeks = localRaw ? JSON.parse(localRaw) : [];
+    if(localWeeks.length > ghWeeks.length){
+      console.log(`GH sync: local has ${localWeeks.length} weeks, GitHub has ${ghWeeks.length} — keeping local and pushing to GitHub`);
+      // Push local data up to GitHub to sync it
+      setTimeout(()=>saveToSP(), 1000);
+      return false;
+    }
     weeks = {};
-    (data.weeks || []).forEach(w => {
+    ghWeeks.forEach(w => {
       const sc = deSched(w.sched);
       weeks[w.key] = { key: w.key, label: w.label, sched: sc, conflicts: findConflicts(sc) };
     });
     if(Object.keys(weeks).length) curWk = Object.keys(weeks)[Object.keys(weeks).length - 1];
     sortWeeks();
-    console.log(`GH sync: loaded ${Object.keys(weeks).length} weeks, curWk=${curWk}`);
+    console.log(`GH sync: loaded ${Object.keys(weeks).length} weeks from GitHub`);
     showToast('Loaded from GitHub ✓');
-    // Render immediately as soon as data is ready — don't wait for init to finish
     saveLocal();
     renderAll();
     populateOvSelects();
@@ -688,28 +702,30 @@ async function loadFromSP(){
 let _ghSha = null; // track current file SHA for updates
 
 async function saveToSP(){
-  saveLocal(); // always save locally first
+  saveLocal();
   if(!GH_CONFIG.token){ showToast('Saved locally — sync not configured', true); return; }
+  const weekCount = Object.keys(weeks).length;
+  if(!weekCount){ console.warn('saveToSP: no weeks to save — aborting GitHub write'); return; }
+  console.log(`GH sync: saving ${weekCount} weeks to GitHub...`);
   try {
-    // Always get the current SHA fresh before writing to avoid conflicts
     const existing = await ghGet();
     _ghSha = existing?.sha || null;
-
     const payload = {
       weeks: Object.values(weeks).map(w => ({ key: w.key, label: w.label, sched: serSched(w.sched) })),
       personnel: JSON.parse(localStorage.getItem('sp_personnel_v2') || '{}'),
       lastUpdated: new Date().toISOString()
     };
+    console.log(`GH sync: writing ${payload.weeks.length} weeks`);
     const ok = await ghPut(payload, _ghSha);
     if(ok){
-      // Re-fetch SHA for next save
       const updated = await ghGet();
       if(updated) _ghSha = updated.sha;
+      console.log('GH sync: save successful');
       showToast('Saved & synced to GitHub ✓');
       renderAuthBar();
     } else {
       showToast('Sync failed — check console for details', true);
-      console.error('ghPut returned false — token may lack write access or repo name is wrong');
+      console.error('ghPut returned false');
     }
   } catch(e) {
     console.error('Save to GH error:', e);
