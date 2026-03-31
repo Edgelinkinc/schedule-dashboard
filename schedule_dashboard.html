@@ -1,0 +1,2821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Schedule Compliance Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+--bg:#F7F4FC;--surface:#FFFFFF;--surface2:#F0EBF8;
+--border:#E4DAEF;--border2:#CFC0E3;
+--text:#1A0F2E;--text2:#5C4E72;--text3:#9E8FB5;
+--green:#007A3D;--green-bg:#E0F5EB;--green-lt:#F0FAF4;
+--amber:#C45000;--amber-bg:#FFF0E6;--amber-lt:#FFF8F2;
+--red:#C2003E;--red-bg:#FFE6EF;--red-lt:#FFF2F7;
+--blue:#1E40AF;--blue-bg:#EEF2FF;
+--mg:#E20074;--mg-dk:#B3005A;--mg-lt:#FFE6F2;--mg-mid:#FF4DA6;
+--pu:#3D1D61;--pu-dk:#2A1144;--pu-mid:#6B3FA0;--pu-lt:#EDE7F6;
+--accent:#3D1D61;--r:8px;--rl:12px;--rxl:16px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.app{display:flex;min-height:100vh}
+.sidebar{width:220px;background:var(--pu);color:#fff;flex-shrink:0;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto}
+.sb-brand{padding:24px 20px 16px;border-bottom:1px solid rgba(255,255,255,.12)}
+.sb-brand h1{font-size:14px;font-weight:800;letter-spacing:.5px;line-height:1.3;text-transform:uppercase}
+.sb-brand p{font-size:11px;opacity:.5;margin-top:2px}
+.sb-nav{padding:12px 0;flex:1}
+.ni{display:flex;align-items:center;gap:10px;padding:9px 20px;font-size:13px;cursor:pointer;color:rgba(255,255,255,.6);transition:all .15s;border-left:2px solid transparent}
+.ni:hover{color:#fff;background:rgba(255,255,255,.06)}
+.ni.active{color:#fff;background:rgba(226,0,116,.18);border-left-color:var(--mg);font-weight:600}
+.ni svg{width:16px;height:16px;opacity:.7;flex-shrink:0}
+.ni.active svg{opacity:1}
+.ns{padding:16px 20px 6px;font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,200,230,.4)}
+.sb-foot{padding:14px 20px;border-top:1px solid rgba(255,255,255,.12);font-size:10px;color:rgba(255,200,230,.35);font-weight:500}
+.main{flex:1;overflow:hidden}
+.topbar{background:var(--surface);border-bottom:2px solid var(--mg);padding:12px 32px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
+.topbar h2{font-size:16px;font-weight:700;letter-spacing:-.2px;color:var(--pu)}
+.topbar-r{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.content{padding:28px 32px}
+.page{display:none}
+.page.active{display:block}
+.upload-zone{border:2px dashed var(--mg-mid);border-radius:var(--rxl);padding:48px 32px;text-align:center;cursor:pointer;transition:all .2s;background:var(--surface)}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--mg);background:var(--mg-lt)}
+.upload-zone h3{font-size:16px;font-weight:500;margin-bottom:6px}
+.upload-zone p{font-size:13px;color:var(--text2)}
+#file-input{display:none}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
+.mc{background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--mg);border-radius:var(--rl);padding:16px 18px}
+.mc .lbl{font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:8px}
+.mc .val{font-size:28px;font-weight:600;letter-spacing:-1px;line-height:1}
+.mc .sub{font-size:12px;color:var(--text2);margin-top:5px}
+.mc.danger{border-top-color:var(--red)}.mc.danger .val{color:var(--red)}
+.mc.warning{border-top-color:var(--amber)}.mc.warning .val{color:var(--amber)}
+.mc.success{border-top-color:var(--green)}.mc.success .val{color:var(--green)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;margin-bottom:20px}
+.ch{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;border-left:3px solid var(--mg)}
+.ch h3{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text)}
+.cb{padding:20px}
+.badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700;letter-spacing:.02em}
+.badge.ok{background:#007A3D;color:#fff}
+.badge.warn{background:#C45000;color:#fff}
+.badge.err{background:var(--mg-dk);color:#fff}
+.badge.info{background:#1E40AF;color:#fff}
+.badge.neutral{background:var(--pu-lt);color:var(--pu-dk)}
+.badge.up{background:#007A3D;color:#fff}
+.badge.dn{background:var(--mg-dk);color:#fff}
+.badge.eq{background:var(--pu-lt);color:var(--pu-dk)}
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:10px 14px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--pu-mid);background:var(--pu-lt);border-bottom:2px solid var(--border2);white-space:nowrap}
+td{padding:10px 14px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--bg)}
+.filters{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.filters select,.filters input{font-family:'DM Sans',sans-serif;font-size:13px;padding:7px 12px;border-radius:var(--r);border:1px solid var(--border2);background:var(--surface);color:var(--text);cursor:pointer;accent-color:var(--mg)}
+.filters select:focus,.filters input:focus{outline:none;border-color:var(--mg);box-shadow:0 0 0 2px rgba(226,0,116,.15)}
+.fl{font-size:12px;color:var(--text2);font-weight:500}
+.sg{display:grid;gap:0;border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;font-size:12px}
+.sc{padding:8px 10px;border-right:1px solid var(--border);border-bottom:1px solid var(--border)}
+.sc:last-child{border-right:none}
+.sc.hdr{background:var(--pu);color:#fff;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.06em}
+.sc.emp-col{background:var(--pu-lt);font-weight:600;font-size:11px}
+.sc.shift{background:var(--surface);line-height:1.4}
+.sc.shift.ok{background:#E0F5EB}
+.sc.shift.warn{background:#FFF0E6}
+.sc.shift.err{background:#FFE6EF}
+.sc.shift.off{color:var(--text3);font-size:11px}
+.st{font-size:11px;font-weight:500;color:var(--text)}
+.sh{font-size:10px;color:var(--text2)}
+.sv{font-size:10px;color:var(--red);margin-top:2px;line-height:1.3}
+.rc{display:inline-block;font-size:10px;padding:1px 5px;border-radius:3px;font-weight:600;margin-left:4px}
+.r1{background:#fef08a;color:#713f12}.r2{background:#fed7aa;color:#7c2d12}.r3{background:#bbf7d0;color:#14532d}
+.r4{background:#bfdbfe;color:#1e3a8a}.r5{background:#ddd6fe;color:#4c1d95}.r6{background:#e2e8f0;color:#334155}.r7{background:#f1f5f9;color:#64748b}
+.bar-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.bar-lbl{font-size:12px;color:var(--text2);width:160px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar-track{flex:1;background:var(--surface2);border-radius:4px;height:12px}
+.bar-fill{height:12px;border-radius:4px}
+.bar-val{font-size:12px;color:var(--text2);width:38px;text-align:right;flex-shrink:0;font-family:'DM Mono',monospace}
+.btn{font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;padding:8px 16px;border-radius:var(--r);border:1px solid var(--border2);background:var(--surface);color:var(--text);cursor:pointer;transition:all .15s}
+.btn:hover{background:var(--surface2)}
+.btn.primary{background:var(--pu);color:#fff;border-color:var(--accent)}
+.btn.primary:hover{opacity:.88}
+.btn.sm{padding:5px 10px;font-size:12px}
+.wk-pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:99px;font-size:12px;border:1px solid var(--border2);background:var(--surface);cursor:pointer;margin-right:6px;margin-bottom:4px;font-weight:500}
+.wk-pill.active{background:var(--pu);color:#fff;border-color:var(--accent)}
+.wk-pill .dot{width:6px;height:6px;border-radius:50%;background:var(--green);flex-shrink:0}
+.wk-pill.active .dot{background:rgba(255,255,255,.6)}
+.cc{border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;margin-bottom:8px}
+.cc.overlap{border-color:var(--mg-mid);background:var(--mg-lt)}
+.cc.tight{border-color:#fcd34d;background:var(--amber-lt)}
+.cc .ce{font-size:13px;font-weight:600;margin-bottom:4px}
+.cc .cd{font-size:12px;color:var(--text2);line-height:1.7}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.empty{text-align:center;padding:48px 20px;color:var(--text2)}
+.empty h3{font-size:15px;font-weight:500;margin-bottom:6px;color:var(--text)}
+.nb{font-family:'DM Sans',sans-serif;font-size:12px;padding:4px 10px;border-radius:6px;border:1px solid rgba(255,255,255,.25);background:transparent;color:rgba(255,255,255,.8);cursor:pointer;}
+.nb:hover{background:rgba(255,255,255,.1);}
+.step-block{display:flex;gap:16px;margin-bottom:24px;padding-bottom:24px;border-bottom:1px solid var(--border)}.step-block:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0}.step-num{width:28px;height:28px;border-radius:50%;background:var(--pu);color:#fff;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px}.step-body h4{font-size:14px;font-weight:600;margin-bottom:6px}.step-body p{font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:6px}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+.pin-btn{font-family:'DM Sans',sans-serif;font-size:20px;font-weight:500;padding:14px;border-radius:var(--r);border:1px solid var(--border2);background:var(--surface);color:var(--text);cursor:pointer;transition:all .1s}
+.pin-btn:hover{background:var(--pu-lt);border-color:var(--pu)}
+.pin-btn:active{background:var(--pu);color:#fff;transform:scale(.95)}
+.pin-dot{width:14px;height:14px;border-radius:50%;background:var(--border2);transition:background .15s}
+.pin-dot.filled{background:var(--pu)}
+@media(max-width:900px){
+  /* Sidebar hidden on mobile — replaced by bottom nav */
+  .sidebar{display:none}
+  .main{width:100%;min-height:100vh;padding-bottom:70px}
+  .topbar{padding:10px 16px;position:sticky;top:0;z-index:10}
+  .topbar h2{font-size:14px}
+  .content{padding:14px 12px}
+  .metrics{grid-template-columns:1fr 1fr;gap:10px}
+  .mc .val{font-size:22px}
+  .grid2{grid-template-columns:1fr}
+  .filters{gap:6px}
+  .filters select,.filters input{font-size:12px;padding:6px 8px;max-width:140px}
+  /* Tables scroll horizontally */
+  .tw{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  table{min-width:500px}
+  /* Cards */
+  .card{border-radius:10px}
+  .ch{padding:12px 14px}
+  .cb{padding:14px}
+  /* Schedule grid */
+  .sg{font-size:11px}
+  .sc{padding:5px 6px}
+  /* Bottom nav bar */
+  .mobile-nav{
+    display:flex;position:fixed;bottom:0;left:0;right:0;height:64px;
+    background:var(--pu-dk);border-top:1px solid rgba(255,255,255,.1);
+    z-index:50;align-items:stretch;
+  }
+  .mn-item{
+    flex:1;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:3px;cursor:pointer;
+    color:rgba(255,255,255,.5);font-size:9px;font-weight:600;
+    letter-spacing:.04em;text-transform:uppercase;border:none;
+    background:transparent;padding:6px 2px;transition:all .15s;
+  }
+  .mn-item svg{width:20px;height:20px;opacity:.6}
+  .mn-item.active{color:#fff;border-top:2px solid var(--mg)}
+  .mn-item.active svg{opacity:1}
+  .mn-item.admin-only{display:none}
+  .mn-item.admin-only.visible{display:flex}
+  /* More menu drawer */
+  .mobile-more-drawer{
+    display:none;position:fixed;bottom:64px;left:0;right:0;
+    background:var(--pu-dk);border-top:1px solid rgba(255,255,255,.12);
+    z-index:49;padding:8px 0;
+  }
+  .mobile-more-drawer.open{display:block}
+  .mmd-item{
+    display:flex;align-items:center;gap:12px;padding:12px 20px;
+    color:rgba(255,255,255,.75);font-size:13px;cursor:pointer;
+  }
+  .mmd-item:hover{background:rgba(255,255,255,.06)}
+  .mmd-item svg{width:18px;height:18px;opacity:.7;flex-shrink:0}
+  .mmd-item.active{color:#fff;font-weight:600}
+  /* PIN modal full screen on mobile */
+  #pin-modal > div{padding:28px 24px;width:100%;max-width:340px}
+  /* Modals full width */
+  #pers-edit-modal > div{width:96vw;padding:20px 16px}
+}
+@media(max-width:480px){
+  .metrics{grid-template-columns:1fr 1fr;gap:8px}
+  .mc{padding:12px 14px}
+  .mc .val{font-size:20px}
+  .mc .lbl{font-size:10px}
+  .topbar h2{font-size:13px}
+  .filters select,.filters input{max-width:120px;font-size:11px}
+  /* Stack metric cards to 1 col on very small phones */
+  .metrics.single-col{grid-template-columns:1fr}
+}
+/* Desktop only — sidebar visible */
+@media(min-width:901px){
+  .mobile-nav,.mobile-more-drawer{display:none!important}
+}
+</style>
+<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
+</head>
+<body>
+<div class="app">
+<aside class="sidebar">
+  <div class="sb-brand"><h1>Schedule<br>Compliance</h1><p>Dashboard</p></div>
+  <nav class="sb-nav">
+    <div class="ns">Main</div>
+    <div class="ni active" onclick="nav('overview')"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h5v5H2V2zm0 7h5v5H2V9zm7-7h5v5H9V2zm0 7h5v5H9V9z"/></svg><span>Overview</span></div>
+    <div class="ni" onclick="nav('locations')"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a4 4 0 0 1 4 4c0 3-4 9-4 9S4 8 4 5a4 4 0 0 1 4-4zm0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg><span>Locations</span></div>
+    <div class="ni" onclick="nav('managers')"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm-5 6s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1H3z"/></svg><span>Managers</span></div>
+    <div class="ni" onclick="nav('coaches')"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M1 14s-1 0-1-1 1-4 6-4h2c5 0 6 3 6 4s-1 1-1 1H1zm6-6a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/></svg><span>Coaches</span></div>
+    <div class="ns">Analysis</div>
+    <div class="ni" onclick="nav('conflicts')"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 3a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 8 4zm0 8a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/></svg><span>Conflicts</span></div>
+    <div class="ni" onclick="nav('understaffed')"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a3 3 0 1 0 0 6A3 3 0 0 0 8 1zM3 14s-1 0-1-1c0-2 2-4 6-4s6 2 6 4-1 1-1 1H3z"/><path d="M13 6l2 2-2 2M11 6l-2 2 2 2" stroke="currentColor" stroke-width="1.5" fill="none"/></svg><span>Understaffed</span></div>
+    <div class="ni" onclick="nav('tracker')"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M1 11l4-4 3 3 3-4 4 3V14H1v-3z"/></svg><span>Week-over-Week</span></div>
+    <div class="ni" onclick="nav('monthly')"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h12v12H2V2zm1 3v8h10V5H3zm2-3V1h1v1H5zm5 0V1h1v1h-1zM3 7h2v2H3V7zm3 0h2v2H6V7zm3 0h2v2H9V7zm-6 3h2v2H3v-2zm3 0h2v2H6v-2zm3 0h2v2H9v-2z"/></svg><span>Monthly</span></div>
+    <div class="ns">Data</div>
+    <div class="ni" onclick="nav('personnel')"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M6 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm-5 6s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1H1zm11-9a1 1 0 0 1 1 1v1h1a1 1 0 1 1 0 2h-1v1a1 1 0 1 1-2 0v-1h-1a1 1 0 1 1 0-2h1V6a1 1 0 0 1 1-1z"/></svg><span>Personnel</span></div>
+    <div class="ni" onclick="nav('upload')"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1l4 4H9v5H7V5H4L8 1zM2 12h12v2H2v-2z"/></svg><span>Upload Schedule</span></div>
+    <div class="ni" onclick="nav('setup')"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 2a5 5 0 1 1 0 10A5 5 0 0 1 8 3zm0 2a1 1 0 0 0-1 1v2.586l-1.707 1.707a1 1 0 1 0 1.414 1.414L8.707 9.707A1 1 0 0 0 9 9V6a1 1 0 0 0-1-1z"/></svg><span>Setup</span></div>
+  </nav>
+  <div id="auth-bar" style="padding:12px 16px;border-top:1px solid rgba(255,255,255,.1);display:flex;flex-direction:column;gap:6px">
+  <span style="font-size:11px;color:rgba(255,255,255,.3)">Loading...</span>
+</div>
+<div id="pin-bar" style="padding:10px 16px;border-top:1px solid rgba(255,255,255,.1)">
+  <div id="pin-status-locked" style="display:flex;align-items:center;gap:8px;cursor:pointer" onclick="showPinModal()">
+    <span style="font-size:16px">🔒</span>
+    <div>
+      <div style="font-size:11px;font-weight:600;color:rgba(255,200,230,.7)">View Only</div>
+      <div style="font-size:10px;color:rgba(255,255,255,.3)">Tap to sign in</div>
+    </div>
+  </div>
+  <div id="pin-status-unlocked" style="display:none;align-items:center;gap:8px">
+    <span style="font-size:16px">🔓</span>
+    <div style="flex:1">
+      <div style="font-size:11px;font-weight:600;color:rgba(100,255,150,.8)">HR / Admin</div>
+      <div style="font-size:10px;color:rgba(255,255,255,.3)">Full access</div>
+    </div>
+    <button onclick="lockDashboard()" style="font-size:10px;background:rgba(255,255,255,.1);border:none;color:rgba(255,255,255,.5);border-radius:4px;padding:3px 7px;cursor:pointer">Lock</button>
+  </div>
+</div>
+<div class="sb-foot">Schedule Compliance v1.0</div>
+</aside>
+
+<main class="main">
+  <div class="topbar">
+    <h2 id="page-title">Upload Schedule</h2>
+    <div class="topbar-r">
+      <button id="topbar-upload-btn" class="btn sm primary" onclick="adminNav('upload')" style="display:none">+ Upload</button>
+    </div>
+  </div>
+  <div class="content">
+
+  <!-- PIN entry modal -->
+  <div id="pin-modal" style="display:none;position:fixed;inset:0;background:rgba(30,10,50,.7);z-index:200;align-items:center;justify-content:center">
+    <div style="background:var(--surface);border-radius:var(--rxl);padding:36px 40px;width:360px;max-width:92vw;box-shadow:0 24px 80px rgba(0,0,0,.4);text-align:center">
+      <div style="font-size:36px;margin-bottom:12px">🔒</div>
+      <h2 style="font-size:18px;font-weight:700;color:var(--pu);margin:0 0 6px">Admin Access</h2>
+      <p style="font-size:13px;color:var(--text2);margin:0 0 24px">Enter your PIN to unlock upload and personnel editing.</p>
+      <div style="display:flex;gap:10px;justify-content:center;margin-bottom:8px" id="pin-dots">
+        <div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div>
+      </div>
+      <div id="pin-error" style="height:18px;font-size:12px;color:var(--red);margin-bottom:12px"></div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:220px;margin:0 auto">
+        <button class="pin-btn" onclick="pinEntry('1')">1</button>
+        <button class="pin-btn" onclick="pinEntry('2')">2</button>
+        <button class="pin-btn" onclick="pinEntry('3')">3</button>
+        <button class="pin-btn" onclick="pinEntry('4')">4</button>
+        <button class="pin-btn" onclick="pinEntry('5')">5</button>
+        <button class="pin-btn" onclick="pinEntry('6')">6</button>
+        <button class="pin-btn" onclick="pinEntry('7')">7</button>
+        <button class="pin-btn" onclick="pinEntry('8')">8</button>
+        <button class="pin-btn" onclick="pinEntry('9')">9</button>
+        <button class="pin-btn" onclick="pinClear()" style="font-size:11px;color:var(--text2)">CLR</button>
+        <button class="pin-btn" onclick="pinEntry('0')">0</button>
+        <button class="pin-btn" onclick="pinBackspace()" style="font-size:16px">⌫</button>
+      </div>
+      <button class="btn" onclick="closePinModal()" style="margin-top:20px;width:100%">Cancel — View Only</button>
+    </div>
+  </div>
+
+    <div id="page-setup" class="page">
+  <div class="card" style="max-width:720px">
+    <div class="ch"><h3>SharePoint connection setup</h3></div>
+    <div class="cb">
+      <p style="font-size:13px;color:var(--text2);margin-bottom:20px;line-height:1.7">Connect this dashboard to SharePoint so your data is shared across your team and saved permanently. Follow these steps once — takes about 10 minutes.</p>
+
+      <div style="counter-reset:step">
+        <div class="step-block">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <h4>Register the app in Azure</h4>
+            <p>Go to <a href="https://portal.azure.com" target="_blank" style="color:var(--blue)">portal.azure.com</a> &rarr; <strong>Azure Active Directory</strong> &rarr; <strong>App registrations</strong> &rarr; <strong>New registration</strong></p>
+            <ul style="margin:8px 0 8px 20px;font-size:13px;color:var(--text2);line-height:1.8">
+              <li>Name: <code>Schedule Dashboard</code></li>
+              <li>Supported account types: <strong>Accounts in this org only</strong></li>
+              <li>Redirect URI: <strong>Single-page application (SPA)</strong> &rarr; paste your GitHub Pages URL</li>
+            </ul>
+            <p>Click <strong>Register</strong>. Copy the <strong>Application (client) ID</strong> and <strong>Directory (tenant) ID</strong> shown on the overview page.</p>
+          </div>
+        </div>
+        <div class="step-block">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <h4>Add API permissions</h4>
+            <p>In your new app &rarr; <strong>API permissions</strong> &rarr; <strong>Add a permission</strong> &rarr; <strong>Microsoft Graph</strong> &rarr; <strong>Delegated permissions</strong></p>
+            <p>Add these permissions:</p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0"><span class="badge info">Files.ReadWrite</span><span class="badge info">Sites.ReadWrite.All</span><span class="badge info">User.Read</span></div>
+            <p>Then click <strong>Grant admin consent</strong>.</p>
+          </div>
+        </div>
+        <div class="step-block">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <h4>Enter your details below</h4>
+            <div style="display:grid;gap:10px;margin-top:12px">
+              <div><label style="font-size:12px;font-weight:500;color:var(--text2);display:block;margin-bottom:4px">Client ID (Application ID)</label><input id="cfg-client" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" style="width:100%;padding:8px 12px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:'DM Mono',monospace"></div>
+              <div><label style="font-size:12px;font-weight:500;color:var(--text2);display:block;margin-bottom:4px">Tenant ID (Directory ID)</label><input id="cfg-tenant" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" style="width:100%;padding:8px 12px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:'DM Mono',monospace"></div>
+              <div><label style="font-size:12px;font-weight:500;color:var(--text2);display:block;margin-bottom:4px">SharePoint Site URL</label><input id="cfg-site" placeholder="https://yourcompany.sharepoint.com/sites/Scheduling" style="width:100%;padding:8px 12px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px"></div>
+            </div>
+            <button class="btn primary" style="margin-top:16px" onclick="saveConfig()">Save &amp; Connect</button>
+            <p style="font-size:12px;color:var(--text3);margin-top:8px">These values are saved in your browser and injected into the app. You only do this once per device.</p>
+          </div>
+        </div>
+      </div>
+
+      <div id="cfg-status" style="margin-top:16px"></div>
+    </div>
+  </div>
+</div>
+<div id="page-upload" class="page active">
+      <div class="upload-zone" id="drop-zone" onclick="if(!isAdminUnlocked){showPinModal();return;}document.getElementById('file-input').click()">
+        <svg style="width:40px;height:40px;margin:0 auto 16px;display:block;opacity:.3" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 4l8 8h-5v12h-6V12h-5l8-8z"/><path d="M6 28h28v8H6v-8z"/></svg>
+        <h3>Upload this week's schedule</h3>
+        <p>Drop your .xls or .xlsx file here, or click to browse</p>
+        <p style="margin-top:8px;font-size:12px;color:var(--text3)">The file you download from your scheduling system each week</p>
+      </div>
+      <input type="file" id="file-input" accept=".xls,.xlsx" onchange="handleFile(this.files[0])">
+      <div id="hist-section" style="margin-top:28px;display:none">
+        <h3 style="font-size:14px;font-weight:600;margin-bottom:10px">Loaded weeks (saved in browser)</h3>
+        <div id="hist-list"></div>
+        <button class="btn sm" style="margin-top:12px;color:var(--red)" onclick="if(!isAdminUnlocked){showPinModal();return;}clearAll()">Clear all history</button>
+      </div>
+    </div>
+
+    <div id="page-personnel" class="page">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+        <div>
+          <h2 style="font-size:18px;font-weight:700;color:var(--pu);margin:0">Personnel Directory</h2>
+          <p style="font-size:13px;color:var(--text2);margin:4px 0 0">Edit coaches and managers for any location. Changes apply immediately across all tabs and are saved in your browser.</p>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <input id="pers-search" placeholder="Search location, coach, manager…" oninput="renderPersonnel()" style="font-family:inherit;font-size:13px;padding:7px 12px;border-radius:var(--r);border:1px solid var(--border2);background:var(--surface);color:var(--text);width:240px">
+          <button class="btn sm" onclick="resetPersonnel()" style="color:var(--red)">Reset to defaults</button>
+        </div>
+      </div>
+      <div id="pers-unsaved" style="display:none;background:var(--green-bg);border:1px solid var(--green);border-radius:var(--r);padding:10px 16px;margin-bottom:16px;font-size:13px;color:var(--green);align-items:center;gap:8px">
+        <span>✓ Changes saved automatically.</span>
+      </div>
+      <div class="card" style="padding:0">
+        <div class="tw"><table>
+          <thead><tr>
+            <th>Location</th>
+            <th>State</th>
+            <th>Type</th>
+            <th>Coach</th>
+            <th>Manager</th>
+            <th style="width:80px"></th>
+          </tr></thead>
+          <tbody id="pers-tbody"></tbody>
+        </table></div>
+      </div>
+      <div id="pers-edit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;align-items:center;justify-content:center">
+        <div style="background:var(--surface);border-radius:var(--rl);padding:28px 32px;width:480px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+          <h3 id="pers-modal-title" style="font-size:16px;font-weight:700;color:var(--pu);margin:0 0 4px"></h3>
+          <p style="font-size:12px;color:var(--text2);margin:0 0 20px">Changes are logged with an effective date for accountability tracking.</p>
+          <div style="display:grid;gap:14px">
+            <div>
+              <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:5px">Coach</label>
+              <input id="pers-modal-coach" style="width:100%;font-family:inherit;font-size:14px;padding:9px 12px;border:1px solid var(--border2);border-radius:var(--r);color:var(--text)" placeholder="Coach name or TBD">
+            </div>
+            <div>
+              <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:5px">Manager</label>
+              <input id="pers-modal-manager" style="width:100%;font-family:inherit;font-size:14px;padding:9px 12px;border:1px solid var(--border2);border-radius:var(--r);color:var(--text)" placeholder="Manager name or TBD">
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+              <div>
+                <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:5px">Effective Date <span style="color:var(--mg-dk)">*</span></label>
+                <input id="pers-modal-effdate" style="width:100%;font-family:'DM Mono',monospace;font-size:13px;padding:9px 12px;border:1px solid var(--border2);border-radius:var(--r);color:var(--text)" placeholder="MM/DD/YYYY">
+                <p style="font-size:10px;color:var(--text3);margin:4px 0 0">Historical weeks before this date still show the previous person.</p>
+              </div>
+              <div>
+                <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:5px">Reason / Note</label>
+                <input id="pers-modal-note" style="width:100%;font-family:inherit;font-size:13px;padding:9px 12px;border:1px solid var(--border2);border-radius:var(--r);color:var(--text)" placeholder="e.g. Resigned, Transferred…">
+              </div>
+            </div>
+          </div>
+          <div style="background:var(--pu-lt);border-radius:var(--r);padding:10px 14px;margin-top:14px;font-size:12px;color:var(--text2);line-height:1.6">
+            💡 <strong style="color:var(--pu)">Accountability:</strong> Reports for weeks <em>before</em> the effective date will still show the previous person's name — so compliance history stays accurate.
+          </div>
+          <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end">
+            <button class="btn" onclick="closePersonnelModal()">Cancel</button>
+            <button class="btn primary" onclick="savePersonnelEdit()">Save &amp; Log Change</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="page-overview" class="page">
+
+  <!-- Week selectors bar -->
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:12px 16px">
+    <span style="font-size:12px;font-weight:500;color:var(--text2)">Comparing:</span>
+    <select id="ov-wk1" onchange="renderOverview()" style="font-size:13px;padding:6px 10px;border-radius:var(--r);border:1px solid var(--border2);background:var(--surface);color:var(--text);font-family:inherit"><option value="">— Week 1 —</option></select>
+    <span style="font-size:13px;color:var(--text2)">vs</span>
+    <select id="ov-wk2" onchange="renderOverview()" style="font-size:13px;padding:6px 10px;border-radius:var(--r);border:1px solid var(--border2);background:var(--surface);color:var(--text);font-family:inherit"><option value="">— Week 2 —</option></select>
+    <span id="ov-wk-hint" style="font-size:11px;color:var(--text3);margin-left:4px"></span>
+  </div>
+
+  <!-- Metric cards -->
+  <div class="metrics" id="ov-metrics"></div>
+
+  <!-- Holiday notice banner -->
+  <div id="ov-hol-banner" style="margin-bottom:12px;display:none"></div>
+
+  <!-- Understaffed alert strip -->
+  <div id="ov-understaffed-strip" style="margin-bottom:16px"></div>
+
+  <!-- Compliance + violations side by side -->
+  <div class="grid2" style="margin-bottom:20px">
+    <div class="card"><div class="ch"><h3>Avg compliance score</h3><span id="ov-compliance-trend" style="font-size:12px"></span></div><div class="cb" id="compliance-bars"></div></div>
+    <div class="card"><div class="ch"><h3>Violations by type</h3><span id="ov-viol-trend" style="font-size:12px"></span></div><div class="cb" id="viol-bars"></div></div>
+  </div>
+
+  <!-- Coach breakdown full width -->
+  <div class="card" style="margin-bottom:20px">
+    <div class="ch"><h3>Compliance by coach — week over week</h3></div>
+    <div class="cb" id="coach-bars"></div>
+  </div>
+
+  <!-- Missing schedules full width -->
+  <div class="card">
+    <div class="ch" style="flex-wrap:wrap;gap:10px">
+      <h3>No schedule submitted</h3>
+      <div id="missing-summary" style="font-size:12px;color:var(--text2)"></div>
+    </div>
+    <!-- hidden selects kept for renderMissingList compatibility -->
+    <select id="miss-wk1" onchange="renderMissingList()" style="display:none"></select>
+    <select id="miss-wk2" onchange="renderMissingList()" style="display:none"></select>
+    <div class="cb" id="missing-list"></div>
+  </div>
+
+</div>
+
+    <div id="page-locations" class="page">
+      <div class="filters">
+        <span class="fl">Week:</span><select id="lc-wk" onchange="renderLocTable()" style="font-size:13px;padding:6px 10px;border-radius:var(--r);border:1px solid var(--border2);background:var(--surface);color:var(--text);font-family:inherit;font-weight:500"><option value="">— Select week —</option></select>
+        <span class="fl">Filter:</span>
+        <select id="lc-coach" onchange="renderLocTable()"><option value="">All coaches</option></select>
+        <select id="lc-status" onchange="renderLocTable()"><option value="">All statuses</option><option value="ok">Compliant (80%+)</option><option value="warn">Needs attention</option><option value="err">Critical</option><option value="missing">No schedule</option></select>
+        <select id="lc-type" onchange="renderLocTable()"><option value="">1ME &amp; 2ME</option><option value="1ME">1ME only</option><option value="2ME">2ME only</option></select>
+        <input id="lc-search" placeholder="Search..." oninput="renderLocTable()" style="width:160px">
+      </div>
+      <div class="card" style="padding:0"><div class="tw"><table><thead><tr><th>Location</th><th>Coach</th><th>Manager</th><th>Type</th><th>Compliance</th><th>Violations</th><th>Trend</th><th>Top issue</th><th></th></tr></thead><tbody id="loc-tbody"></tbody></table></div></div>
+    </div>
+
+    <div id="page-loc-detail" class="page">
+      <button class="btn sm" onclick="nav(locDetailFrom)" style="margin-bottom:16px">&#8592; Back</button>
+      <div id="loc-detail"></div>
+    </div>
+
+    <div id="page-managers" class="page">
+      <div class="filters"><span class="fl">Week:</span><select id="mgr-wk" onchange="renderMgr()" style="font-size:13px;padding:6px 10px;border-radius:var(--r);border:1px solid var(--border2);background:var(--surface);color:var(--text);font-family:inherit;font-weight:500"><option value="">— Select week —</option></select><span class="fl">Manager:</span><select id="mgr-sel" onchange="renderMgr()"><option value="">All managers</option></select></div>
+      <div id="mgr-content"></div>
+    </div>
+
+    <div id="page-coaches" class="page">
+      <div class="filters"><span class="fl">Week:</span><select id="cch-wk" onchange="renderCoach()" style="font-size:13px;padding:6px 10px;border-radius:var(--r);border:1px solid var(--border2);background:var(--surface);color:var(--text);font-family:inherit;font-weight:500"><option value="">— Select week —</option></select><span class="fl">Coach:</span><select id="cch-sel" onchange="renderCoach()"><option value="">All coaches</option></select></div>
+      <div id="coach-content"></div>
+    </div>
+
+    <div id="page-conflicts" class="page">
+  <div class="filters" style="margin-bottom:16px">
+    <span class="fl">Week:</span>
+    <select id="conf-wk" onchange="renderConflicts()" style="font-size:13px;padding:6px 10px;border-radius:var(--r);border:1px solid var(--border2);background:var(--surface);color:var(--text);font-family:inherit;font-weight:500"><option value="">— Select week —</option></select>
+  </div>
+  <div id="conflicts-content"></div>
+</div>
+    <div id="page-understaffed" class="page">
+      <div class="filters" style="margin-bottom:16px">
+        <span class="fl">Week:</span>
+        <select id="us-wk" onchange="renderUnderstaffed()" style="font-size:13px;padding:6px 10px;border-radius:var(--r);border:1px solid var(--border2);background:var(--surface);color:var(--text);font-family:inherit;font-weight:500"><option value="">— Select week —</option></select>
+      </div>
+      <div id="understaffed-content"></div>
+    </div>
+
+    <div id="page-monthly" class="page">
+      <div class="filters" style="margin-bottom:16px">
+        <span class="fl">Ending week:</span>
+        <select id="mo-wk" onchange="renderMonthly()" style="font-size:13px;padding:6px 10px;border-radius:var(--r);border:1px solid var(--border2);background:var(--surface);color:var(--text);font-family:inherit;font-weight:500"><option value="">— Select week —</option></select>
+        <span class="fl" style="margin-left:8px">Shows up to 4 weeks ending on selected week</span>
+      </div>
+      <div id="monthly-content"></div>
+    </div>
+    <div id="page-tracker" class="page">
+      <div class="filters" style="margin-bottom:16px">
+        <span class="fl">Compare:</span>
+        <select id="tr-wk1" onchange="renderTracker()" style="font-size:13px;padding:6px 10px;border-radius:var(--r);border:1px solid var(--border2);background:var(--surface);color:var(--text);font-family:inherit;font-weight:500"><option value="">— Week 1 —</option></select>
+        <span class="fl">vs</span>
+        <select id="tr-wk2" onchange="renderTracker()" style="font-size:13px;padding:6px 10px;border-radius:var(--r);border:1px solid var(--border2);background:var(--surface);color:var(--text);font-family:inherit;font-weight:500"><option value="">— Week 2 —</option></select>
+      </div>
+      <div class="metrics" id="tr-metrics" style="grid-template-columns:repeat(3,1fr)"></div>
+      <div class="card" style="padding:0"><div class="ch"><h3>Week-over-week compliance</h3></div><div class="tw"><table><thead><tr><th>Location</th><th>Coach</th><th>Manager</th><th id="wk1-col">Week 1</th><th id="wk2-col">Week 2</th><th>Trend</th><th>W1 Violations</th><th>W2 Violations</th><th>Repeat issues</th></tr></thead><tbody id="tr-tbody"></tbody></table></div></div>
+      <div class="card" id="repeat-card"><div class="ch"><h3>Repeat violators — same issue both weeks</h3></div><div class="cb" id="repeat-list"></div></div>
+    </div>
+
+  </div>
+</main>
+
+<!-- Mobile bottom nav bar -->
+<nav class="mobile-nav" id="mobile-nav">
+  <button class="mn-item active" id="mn-overview" onclick="mobileNav('overview')">
+    <svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h5v5H2V2zm0 7h5v5H2V9zm7-7h5v5H9V2zm0 7h5v5H9V9z"/></svg>
+    Overview
+  </button>
+  <button class="mn-item" id="mn-locations" onclick="mobileNav('locations')">
+    <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a4 4 0 0 1 4 4c0 3-4 9-4 9S4 8 4 5a4 4 0 0 1 4-4zm0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>
+    Locations
+  </button>
+  <button class="mn-item" id="mn-coaches" onclick="mobileNav('coaches')">
+    <svg viewBox="0 0 16 16" fill="currentColor"><path d="M1 14s-1 0-1-1 1-4 6-4h2c5 0 6 3 6 4s-1 1-1 1H1zm6-6a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/></svg>
+    Coaches
+  </button>
+  <button class="mn-item" id="mn-understaffed" onclick="mobileNav('understaffed')">
+    <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a3 3 0 1 0 0 6A3 3 0 0 0 8 1zM3 14s-1 0-1-1c0-2 2-4 6-4s6 2 6 4-1 1-1 1H3z"/><path d="M13 6l2 2-2 2M11 6l-2 2 2 2" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>
+    Staffing
+  </button>
+  <button class="mn-item" id="mn-more" onclick="toggleMobileMore()">
+    <svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 8a1 1 0 1 1 2 0 1 1 0 0 1-2 0zm4 0a1 1 0 1 1 2 0 1 1 0 0 1-2 0zm4 0a1 1 0 1 1 2 0 1 1 0 0 1-2 0z"/></svg>
+    More
+  </button>
+</nav>
+
+<!-- More drawer (slides up from bottom nav) -->
+<div class="mobile-more-drawer" id="mobile-more-drawer">
+  <div class="mmd-item" onclick="mobileNav('managers')">
+    <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm-5 6s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1H3z"/></svg>
+    Manager Reports
+  </div>
+  <div class="mmd-item" onclick="mobileNav('conflicts')">
+    <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 3a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 8 4zm0 8a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/></svg>
+    Conflicts
+  </div>
+  <div class="mmd-item" onclick="mobileNav('tracker')">
+    <svg viewBox="0 0 16 16" fill="currentColor"><path d="M1 11l4-4 3 3 3-4 4 3V14H1v-3z"/></svg>
+    Week-over-Week
+  </div>
+  <div class="mmd-item" onclick="mobileNav('monthly')">
+    <svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h12v12H2V2zm1 3v8h10V5H3zm2-3V1h1v1H5zm5 0V1h1v1h-1z"/></svg>
+    Monthly
+  </div>
+  <div class="mmd-item admin-only" id="mmd-upload" onclick="mobileNav('upload')">
+    <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1l4 4H9v5H7V5H4L8 1zM2 12h12v2H2v-2z"/></svg>
+    Upload Schedule
+  </div>
+  <div class="mmd-item admin-only" id="mmd-personnel" onclick="mobileNav('personnel')">
+    <svg viewBox="0 0 16 16" fill="currentColor"><path d="M6 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm-5 6s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1zm11-9a1 1 0 0 1 1 1v1h1a1 1 0 1 1 0 2h-1v1a1 1 0 1 1-2 0v-1h-1a1 1 0 1 1 0-2h1V6a1 1 0 0 1 1-1z"/></svg>
+    Personnel
+  </div>
+  <div class="mmd-item" onclick="closeMobileMore();showPinModal()">
+    <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a5 5 0 1 0 0 10A5 5 0 0 0 8 1zm0 2a3 3 0 1 1 0 6A3 3 0 0 1 8 3zm-4 9h8a1 1 0 0 1 0 2H4a1 1 0 0 1 0-2z"/></svg>
+    <span id="mmd-lock-label">Sign In (Admin)</span>
+  </div>
+</div>
+</div>
+
+<script>
+
+// ── SharePoint / Graph API config ─────────────────────────────────────────────
+// Fill these in after Azure App Registration (see SETUP.md)
+const SP_CONFIG = {
+  clientId:    '',        // Azure App Registration client ID
+  tenantId:    '',        // Your Azure tenant ID
+  siteUrl:     '',        // e.g. https://yourcompany.sharepoint.com/sites/Scheduling
+  driveId:     '',        // OneDrive/SharePoint drive ID (auto-filled after login)
+  fileName:    'schedule_data.json'  // file stored in SharePoint
+};
+
+let msalApp = null;
+let graphToken = null;
+let spDriveId = null;
+let spFileId = null;
+let currentUser = null;
+
+// ── MSAL login ────────────────────────────────────────────────────────────────
+async function initMsal() {
+  if (!SP_CONFIG.clientId || !SP_CONFIG.tenantId) return; // not configured yet
+  if (typeof msal === 'undefined') return;
+  msalApp = new msal.PublicClientApplication({
+    auth: {
+      clientId: SP_CONFIG.clientId,
+      authority: `https://login.microsoftonline.com/${SP_CONFIG.tenantId}`,
+      redirectUri: window.location.origin + window.location.pathname
+    },
+    cache: { cacheLocation: 'sessionStorage' }
+  });
+  await msalApp.initialize();
+  // Handle redirect response
+  const resp = await msalApp.handleRedirectPromise();
+  if (resp) graphToken = resp.accessToken;
+  // Check if already signed in
+  const accounts = msalApp.getAllAccounts();
+  if (accounts.length) {
+    currentUser = accounts[0];
+    try {
+      const tr = await msalApp.acquireTokenSilent({
+        scopes: ['Files.ReadWrite', 'Sites.ReadWrite.All', 'User.Read'],
+        account: currentUser
+      });
+      graphToken = tr.accessToken;
+    } catch(e) { graphToken = null; }
+  }
+  renderAuthBar();
+}
+
+async function signIn() {
+  if (!msalApp) { alert('SharePoint not configured yet. See setup instructions.'); return; }
+  await msalApp.loginRedirect({
+    scopes: ['Files.ReadWrite', 'Sites.ReadWrite.All', 'User.Read']
+  });
+}
+
+async function signOut() {
+  if (!msalApp) return;
+  await msalApp.logoutRedirect();
+}
+
+function renderAuthBar() {
+  const el = document.getElementById('auth-bar');
+  if (!SP_CONFIG.clientId) {
+    el.innerHTML = `<span style="font-size:12px;color:rgba(255,255,255,.4)">SharePoint: not configured</span>
+      <button class="nb" onclick="nav('setup')">Setup &#8594;</button>`;
+    return;
+  }
+  if (currentUser) {
+    el.innerHTML = `<span style="font-size:12px;color:rgba(255,255,255,.7)">${currentUser.username}</span>
+      <button class="nb" onclick="signOut()">Sign out</button>`;
+  } else {
+    el.innerHTML = `<button class="nb" onclick="signIn()">Sign in with Microsoft</button>`;
+  }
+}
+
+// ── Graph API helpers ─────────────────────────────────────────────────────────
+async function graphGet(url) {
+  const r = await fetch('https://graph.microsoft.com/v1.0' + url, {
+    headers: { Authorization: 'Bearer ' + graphToken }
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+async function graphPut(url, body) {
+  const r = await fetch('https://graph.microsoft.com/v1.0' + url, {
+    method: 'PUT',
+    headers: { Authorization: 'Bearer ' + graphToken, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+// ── Resolve SharePoint drive and file IDs ─────────────────────────────────────
+async function resolveSP() {
+  if (spDriveId && spFileId) return true;
+  if (!graphToken) return false;
+  try {
+    // Get site drive
+    const siteResp = await graphGet(`/sites/${new URL(SP_CONFIG.siteUrl).hostname}:/${new URL(SP_CONFIG.siteUrl).pathname}`);
+    const siteId = siteResp.id;
+    const driveResp = await graphGet(`/sites/${siteId}/drive`);
+    spDriveId = driveResp.id;
+    // Try to find existing file
+    try {
+      const fileResp = await graphGet(`/drives/${spDriveId}/root:/${SP_CONFIG.fileName}`);
+      spFileId = fileResp.id;
+    } catch(e) { spFileId = null; } // file doesn't exist yet — will be created on save
+    return true;
+  } catch(e) { console.error('SP resolve error:', e); return false; }
+}
+
+// ── Load data from SharePoint ─────────────────────────────────────────────────
+async function loadFromSP() {
+  if (!graphToken) return false;
+  const ok = await resolveSP();
+  if (!ok || !spFileId) return false;
+  try {
+    const r = await fetch(`https://graph.microsoft.com/v1.0/drives/${spDriveId}/items/${spFileId}/content`, {
+      headers: { Authorization: 'Bearer ' + graphToken }
+    });
+    if (!r.ok) return false;
+    const data = await r.json();
+    // Deserialize weeks
+    weeks = {};
+    (data.weeks || []).forEach(w => {
+      const sc = deSched(w.sched);
+      weeks[w.key] = { key: w.key, label: w.label, sched: sc, conflicts: findConflicts(sc) };
+    });
+    if (Object.keys(weeks).length) curWk = Object.keys(weeks)[Object.keys(weeks).length - 1];
+    showToast('Loaded data from SharePoint');
+    return true;
+  } catch(e) { console.error('SP load error:', e); return false; }
+}
+
+// ── Save data to SharePoint ───────────────────────────────────────────────────
+async function saveToSP() {
+  if (!graphToken) { saveLocal(); return; }
+  const ok = await resolveSP();
+  if (!ok) { saveLocal(); return; }
+  try {
+    const payload = JSON.stringify({
+      weeks: Object.values(weeks).map(w => ({ key: w.key, label: w.label, sched: serSched(w.sched) })),
+      lastUpdated: new Date().toISOString(),
+      updatedBy: currentUser?.username || 'unknown'
+    });
+    const blob = new Blob([payload], { type: 'application/json' });
+    const url = spFileId
+      ? `https://graph.microsoft.com/v1.0/drives/${spDriveId}/items/${spFileId}/content`
+      : `https://graph.microsoft.com/v1.0/drives/${spDriveId}/root:/${SP_CONFIG.fileName}:/content`;
+    const r = await fetch(url, {
+      method: 'PUT',
+      headers: { Authorization: 'Bearer ' + graphToken, 'Content-Type': 'application/json' },
+      body: blob
+    });
+    if (!r.ok) throw new Error(await r.text());
+    const saved = await r.json();
+    spFileId = saved.id;
+    saveLocal(); // also keep local backup
+    showToast('Saved to SharePoint');
+  } catch(e) { console.error('SP save error:', e); saveLocal(); showToast('Saved locally (SP error)', true); }
+}
+
+// ── Local storage fallback ────────────────────────────────────────────────────
+function saveLocal() {
+  try { localStorage.setItem('sw', JSON.stringify(Object.values(weeks).map(w => ({ key: w.key, label: w.label, sched: serSched(w.sched) })))); } catch(e) {}
+}
+
+// ── Toast notification ────────────────────────────────────────────────────────
+function showToast(msg, warn=false) {
+  let t = document.getElementById('toast');
+  if (!t) { t = document.createElement('div'); t.id = 'toast'; document.body.appendChild(t); }
+  t.textContent = msg;
+  t.style.cssText = `position:fixed;bottom:24px;right:24px;padding:10px 18px;border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;font-weight:500;z-index:999;transition:opacity .3s;background:${warn?'#fee2e2;color:#991b1b':'#1a1916;color:#fff'}`;
+  t.style.opacity = '1';
+  setTimeout(() => { t.style.opacity = '0'; }, 3000);
+}
+
+const LOC_DATA = {"locations":{"AR-COLONEL GLENN":{"type":"Store Front","is_mall":false,"is_2me":false,"budget":62,"manager":"Karmina Mendoza","coach":"TBD","phone":"501-271-2937","hours":{"Monday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Tuesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Wednesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Thursday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Friday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Saturday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Sunday":{"open":"11:00 AM","close":"5:00 PM","raw":"11am - 5pm"}}},"AR-RADIO GEYER":{"type":"Store Front","is_mall":false,"is_2me":true,"budget":120,"manager":"Karmina Mendoza","coach":"TBD","phone":"501-271-2937","hours":{"Monday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Tuesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Wednesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Thursday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Friday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Saturday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Sunday":{"open":"11:00 AM","close":"5:00 PM","raw":"11am - 5pm"}}},"CT-BUCKLAND HILLS MALL":{"type":"Mall","is_mall":true,"is_2me":true,"budget":120,"manager":"Nereida Rodriquez","coach":"Mike Cobbs","phone":"860-853-4430","hours":{"Monday":{"open":"9:45 AM","close":"8:00 PM","raw":"9:45am - 8pm"},"Tuesday":{"open":"9:45 AM","close":"8:00 PM","raw":"9:45am - 8pm"},"Wednesday":{"open":"9:45 AM","close":"8:00 PM","raw":"9:45am - 8pm"},"Thursday":{"open":"9:45 AM","close":"8:00 PM","raw":"9:45am - 8pm"},"Friday":{"open":"10:00 AM","close":"9:00 PM","raw":"10am - 9pm"},"Saturday":{"open":"10:00 AM","close":"9:00 PM","raw":"10am - 9pm"},"Sunday":{"open":"11:00 AM","close":"6:00 PM","raw":"11am - 6pm"}}},"CT-NEW LONDON":{"type":"Store Front","is_mall":false,"is_2me":true,"budget":120,"manager":"Josh Landry","coach":"Mike Cobbs","phone":"401-308-2460","hours":{"Monday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Tuesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Wednesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Thursday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Friday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Saturday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Sunday":{"open":"11:00 AM","close":"6:00 PM","raw":"11am - 6pm"}}},"CT-NORWICH":{"type":"Store Front","is_mall":false,"is_2me":false,"budget":62,"manager":"Josh Landry","coach":"Mike Cobbs","phone":"401-308-2460","hours":{"Monday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Tuesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Wednesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Thursday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Friday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Saturday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Sunday":{"open":"11:00 AM","close":"5:00 PM","raw":"11am - 5pm"}}},"MA- SOUTH SHORE MALL":{"type":"Mall","is_mall":true,"is_2me":true,"budget":120,"manager":"TBD","coach":"Rose Perez","phone":"","hours":{"Monday":{"open":"9:45 AM","close":"8:00 PM","raw":"9:45am - 8pm"},"Tuesday":{"open":"9:45 AM","close":"8:00 PM","raw":"9:45am - 8pm"},"Wednesday":{"open":"9:45 AM","close":"8:00 PM","raw":"9:45am - 8pm"},"Thursday":{"open":"9:45 AM","close":"8:00 PM","raw":"9:45am - 8pm"},"Friday":{"open":"10:00 AM","close":"9:00 PM","raw":"10am - 9pm"},"Saturday":{"open":"10:00 AM","close":"9:00 PM","raw":"10am  - 9pm"},"Sunday":{"open":"11:00 AM","close":"6:00 PM","raw":"11am - 6pm"}}},"MA-CAPE CODE MALL":{"type":"Mall","is_mall":true,"is_2me":true,"budget":120,"manager":"Stephanie O'Quinn","coach":"Ambulai Sheku","phone":"912-223-5130","hours":{"Monday":{"open":"9:45 AM","close":"8:00 PM","raw":"9:45am - 8pm"},"Tuesday":{"open":"9:45 AM","close":"8:00 PM","raw":"9:45am - 8pm"},"Wednesday":{"open":"9:45 AM","close":"8:00 PM","raw":"9:45am - 8pm"},"Thursday":{"open":"9:45 AM","close":"8:00 PM","raw":"9:45am - 8pm"},"Friday":{"open":"10:00 AM","close":"9:00 PM","raw":"10am - 9pm"},"Saturday":{"open":"10:00 AM","close":"9:00 PM","raw":"10am  - 9pm"},"Sunday":{"open":"11:00 AM","close":"6:00 PM","raw":"11am - 6pm"}}},"MA-COGGESHALL":{"type":"Store Front","is_mall":false,"is_2me":true,"budget":120,"manager":"Napoleao Dacruz","coach":"Manny","phone":"239-895-2195","hours":{"Monday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Tuesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Wednesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Thursday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Friday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Saturday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Sunday":{"open":"11:00 AM","close":"5:00 PM","raw":"11am - 5pm"}}},"MA-EXCHANGE ST.":{"type":"Store Front","is_mall":false,"is_2me":false,"budget":62,"manager":"Jazmine Heredia","coach":"Joel Montero","phone":"413-459-5385","hours":{"Monday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Tuesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Wednesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Thursday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Friday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Saturday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Sunday":{"open":"11:00 AM","close":"5:00 PM","raw":"11am - 5pm"}}},"MA-FALLRIVER":{"type":"Store Front","is_mall":false,"is_2me":true,"budget":120,"manager":"TBD","coach":"Manny","phone":"","hours":{"Monday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Tuesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Wednesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Thursday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Friday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Saturday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Sunday":{"open":"11:00 AM","close":"5:00 PM","raw":"11am - 5pm"}}},"MA-HOLYOKE":{"type":"Mall","is_mall":true,"is_2me":true,"budget":120,"manager":"Carlos Davila","coach":"Joel Montero","phone":"774-578-3666","hours":{"Monday":{"open":"9:45 AM","close":"8:00 PM","raw":"9:45am - 8pm"},"Tuesday":{"open":"9:45 AM","close":"8:00 PM","raw":"9:45am - 8pm"},"Wednesday":{"open":"9:45 AM","close":"8:00 PM","raw":"9:45am - 8pm"},"Thursday":{"open":"9:45 AM","close":"8:00 PM","raw":"9:45am - 8pm"},"Friday":{"open":"10:00 AM","close":"9:00 PM","raw":"10am - 9pm"},"Saturday":{"open":"10:00 AM","close":"9:00 PM","raw":"10am - 9pm"},"Sunday":{"open":"11:00 AM","close":"6:00 PM","raw":"11am - 6pm"}}},"MA-KELLEY SQUARE":{"type":"Store Front","is_mall":false,"is_2me":true,"budget":120,"manager":"Alex Correa","coach":"Rose Perez","phone":"774-823-7696","hours":{"Monday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Tuesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Wednesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Thursday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Friday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Saturday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Sunday":{"open":"11:00 AM","close":"6:00 PM","raw":"11am - 6pm"}}},"MA-LOCUST STREET":{"type":"Store Front","is_mall":false,"is_2me":false,"budget":62,"manager":"Alicia Montero","coach":"Joel Montero","phone":"917-488-5935","hours":{"Monday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Tuesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Wednesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Thursday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Friday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Saturday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Sunday":{"open":"11:00 AM","close":"4:00 PM","raw":"11am - 4pm"}}},"MA-ROCKDALE":{"type":"Store Front","is_mall":false,"is_2me":true,"budget":120,"manager":"Lori Ruiz","coach":"Manny","phone":"774-360-2754","hours":{"Monday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Tuesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Wednesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Thursday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Friday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Saturday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Sunday":{"open":"11:00 AM","close":"5:00 PM","raw":"11am - 5pm"}}},"MA-STATE STREET":{"type":"Store Front","is_mall":false,"is_2me":false,"budget":62,"manager":"Jessica Ratamar","coach":"Joel Montero","phone":"413-217-0596","hours":{"Monday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Tuesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Wednesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Thursday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Friday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Saturday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Sunday":{"open":"11:00 AM","close":"5:00 PM","raw":"11am - 5pm"}}},"MA-WESTERN AVE":{"type":"Store Front","is_mall":false,"is_2me":true,"budget":120,"manager":"Amina Fellah","coach":"Rose Perez","phone":"207-440-8400","hours":{"Monday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Tuesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Wednesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Thursday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Friday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Saturday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Sunday":{"open":"11:00 AM","close":"5:00 PM","raw":"11am - 5pm"}}},"RI-751BROAD":{"type":"Store Front","is_mall":false,"is_2me":false,"budget":62,"manager":"Keysha Bettencourt","coach":"Rose Perez","phone":"802-692-8098","hours":{"Monday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Tuesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Wednesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Thursday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Friday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Saturday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Sunday":{"open":"11:00 AM","close":"5:00 PM","raw":"11am - 5pm"}}},"RI-BALD HILL":{"type":"Store Front","is_mall":false,"is_2me":true,"budget":120,"manager":"Allia Abodaher","coach":"Mike Cobbs","phone":"","hours":{"Monday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Tuesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Wednesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Thursday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Friday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Saturday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Sunday":{"open":"11:00 AM","close":"6:00 PM","raw":"11am - 6pm"}}},"RI-BROAD ST":{"type":"Store Front","is_mall":false,"is_2me":true,"budget":120,"manager":"TBD","coach":"Rose Perez","phone":"","hours":{"Monday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Tuesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Wednesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Thursday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Friday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Saturday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Sunday":{"open":"11:00 AM","close":"5:00 PM","raw":"11am - 5pm"}}},"RI-BROADWAY":{"type":"Store Front","is_mall":false,"is_2me":false,"budget":62,"manager":"TBD","coach":"Ambulai Sheku","phone":"","hours":{"Monday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Tuesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Wednesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Thursday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Friday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Saturday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Sunday":{"open":"11:00 AM","close":"5:00 PM","raw":"11am - 5pm"}}},"RI-COVENTRY":{"type":"Store Front","is_mall":false,"is_2me":false,"budget":62,"manager":"Chris Paul Pierre","coach":"Ambulai Sheku","phone":"401-516-5533","hours":{"Monday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Tuesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Wednesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Thursday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Friday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Saturday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Sunday":{"open":"11:00 AM","close":"5:00 PM","raw":"11am - 5pm"}}},"RI-DOUGLAS":{"type":"Store Front","is_mall":false,"is_2me":false,"budget":62,"manager":"Chris Paul Pierre","coach":"Ambulai Sheku","phone":"401-516-5533","hours":{"Monday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Tuesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Wednesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Thursday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Friday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Saturday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Sunday":{"open":"11:00 AM","close":"5:00 PM","raw":"11am - 5pm"}}},"RI-EAST PROVIDENCE":{"type":"Store Front","is_mall":false,"is_2me":true,"budget":120,"manager":"Saimary Hernandez","coach":"Mike Cobbs","phone":"401-300-8671","hours":{"Monday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Tuesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Wednesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Thursday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Friday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Saturday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Sunday":{"open":"11:00 AM","close":"5:00 PM","raw":"11am - 5pm"}}},"RI-HARTFORD AVE":{"type":"Store Front","is_mall":false,"is_2me":true,"budget":120,"manager":"Keysha Bettencourt","coach":"Rose Perez","phone":"802-692-8098","hours":{"Monday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Tuesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Wednesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Thursday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Friday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Saturday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Sunday":{"open":"11:00 AM","close":"5:00 PM","raw":"11am - 5pm"}}},"RI-NEWPORT AVE":{"type":"Store Front","is_mall":false,"is_2me":false,"budget":62,"manager":"TBD","coach":"Rose Perez","phone":"","hours":{"Monday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Tuesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Wednesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Thursday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Friday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Saturday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Sunday":{"open":"11:00 AM","close":"5:00 PM","raw":"11am - 5pm"}}},"RI-PROVIDENCE PLACE MALL":{"type":"Mall","is_mall":true,"is_2me":true,"budget":120,"manager":"TBD","coach":"Rose Perez","phone":"","hours":{"Monday":{"open":"9:45 AM","close":"8:00 PM","raw":"9:45am - 8pm"},"Tuesday":{"open":"9:45 AM","close":"8:00 PM","raw":"9:45am - 8pm"},"Wednesday":{"open":"9:45 AM","close":"8:00 PM","raw":"9:45am - 8pm"},"Thursday":{"open":"9:45 AM","close":"8:00 PM","raw":"9:45am - 8pm"},"Friday":{"open":"10:00 AM","close":"9:00 PM","raw":"10am - 9pm"},"Saturday":{"open":"10:00 AM","close":"9:00 PM","raw":"10am - 9pm"},"Sunday":{"open":"11:00 AM","close":"6:00 PM","raw":"11am - 6pm"}}},"RI-RESERVOIR AVE":{"type":"Store Front","is_mall":false,"is_2me":true,"budget":120,"manager":"Daniel Rosales","coach":"Ambulai Sheku","phone":"401-545-3080","hours":{"Monday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Tuesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Wednesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Thursday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Friday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Saturday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Sunday":{"open":"11:00 AM","close":"5:00 PM","raw":"11am - 5pm"}}},"TN-KEITH ST":{"type":"Store Front","is_mall":false,"is_2me":false,"budget":62,"manager":"Marquesha Jones","coach":"Mr. Watts","phone":"865-338-6661","hours":{"Monday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Tuesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Wednesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Thursday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Friday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Saturday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Sunday":{"open":"11:00 AM","close":"5:00 PM","raw":"11am - 5pm"}}},"TN-MAGNOLIA":{"type":"Store Front","is_mall":false,"is_2me":true,"budget":120,"manager":"Mel Mcallistet","coach":"Mr. Watts","phone":"270-363-7144","hours":{"Monday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Tuesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Wednesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Thursday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Friday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Saturday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Sunday":{"open":"11:00 AM","close":"5:00 PM","raw":"11am - 5pm"}}},"TN-MORRISTOWN":{"type":"Store Front","is_mall":false,"is_2me":false,"budget":62,"manager":"Frankcheska Rader","coach":"Mr. Watts","phone":"865-422-4952","hours":{"Monday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Tuesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Wednesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Thursday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Friday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Saturday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Sunday":{"open":"11:00 AM","close":"5:00 PM","raw":"11am - 5pm"}}},"TN-NORTH BROARDWAY":{"type":"Store Front","is_mall":false,"is_2me":true,"budget":120,"manager":"Frankcheska Rader","coach":"Mr. Watts","phone":"865-422-4952","hours":{"Monday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Tuesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Wednesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Thursday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Friday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Saturday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Sunday":{"open":"11:00 AM","close":"5:00 PM","raw":"11am - 5pm"}}},"TN-SHALLOWFORD RD":{"type":"Store Front","is_mall":false,"is_2me":true,"budget":120,"manager":"Marquesha Jones","coach":"Mr. Watts","phone":"865-338-6661","hours":{"Monday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Tuesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Wednesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Thursday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Friday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Saturday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Sunday":{"open":"11:00 AM","close":"5:00 PM","raw":"11am - 5pm"}}},"TN-WEST MARKET":{"type":"Store Front","is_mall":false,"is_2me":false,"budget":62,"manager":"TBD","coach":"Cheryl","phone":"","hours":{"Monday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Tuesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Wednesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Thursday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Friday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Saturday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Sunday":{"open":"11:00 AM","close":"5:00 PM","raw":"11am - 5pm"}}},"TN-WESTERN AVE":{"type":"Store Front","is_mall":false,"is_2me":false,"budget":62,"manager":"Nicki Johnson","coach":"Mr. Watts","phone":"865-201-3452","hours":{"Monday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Tuesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Wednesday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Thursday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Friday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Saturday":{"open":"9:45 AM","close":"7:00 PM","raw":"9:45am - 7pm"},"Sunday":{"open":"11:00 AM","close":"5:00 PM","raw":"11am - 5pm"}}}},"ranks":{"RI-BROADWAY":{"Monday":6,"Tuesday":3,"Wednesday":1,"Thursday":4,"Friday":2,"Saturday":5,"Sunday":7},"RI-RESERVOIR AVE":{"Monday":5,"Tuesday":3,"Wednesday":1,"Thursday":6,"Friday":4,"Saturday":2,"Sunday":7},"MA-CAPE CODE MALL":{"Monday":5,"Tuesday":4,"Wednesday":3,"Thursday":6,"Friday":2,"Saturday":1,"Sunday":7},"RI-COVENTRY":{"Monday":0,"Tuesday":0,"Wednesday":0,"Thursday":0,"Friday":0,"Saturday":0,"Sunday":0},"RI-DOUGLAS":{"Monday":6,"Tuesday":5,"Wednesday":3,"Thursday":4,"Friday":1,"Saturday":2,"Sunday":7},"TN-WEST MARKET":{"Monday":7,"Tuesday":6,"Wednesday":4,"Thursday":5,"Friday":1,"Saturday":2,"Sunday":3},"MA-HOLYOKE":{"Monday":7,"Tuesday":6,"Wednesday":4,"Thursday":3,"Friday":1,"Saturday":2,"Sunday":5},"MA-STATE STREET":{"Monday":3,"Tuesday":4,"Wednesday":2,"Thursday":5,"Friday":1,"Saturday":6,"Sunday":7},"MA-EXCHANGE ST.":{"Monday":6,"Tuesday":3,"Wednesday":2,"Thursday":5,"Friday":1,"Saturday":4,"Sunday":7},"MA-LOCUST STREET":{"Monday":6,"Tuesday":3,"Wednesday":1,"Thursday":5,"Friday":2,"Saturday":4,"Sunday":7},"MA-FALLRIVER":{"Monday":6,"Tuesday":3,"Wednesday":2,"Thursday":5,"Friday":1,"Saturday":4,"Sunday":7},"MA-ROCKDALE":{"Monday":6,"Tuesday":1,"Wednesday":2,"Thursday":5,"Friday":4,"Saturday":3,"Sunday":7},"MA-COGGESHALL":{"Monday":5,"Tuesday":3,"Wednesday":4,"Thursday":6,"Friday":1,"Saturday":2,"Sunday":7},"CT-NORWICH":{"Monday":6,"Tuesday":1,"Wednesday":3,"Thursday":5,"Friday":2,"Saturday":4,"Sunday":7},"CT-BUCKLAND HILLS MALL":{"Monday":6,"Tuesday":4,"Wednesday":3,"Thursday":5,"Friday":1,"Saturday":2,"Sunday":7},"RI-BALD HILL":{"Monday":5,"Tuesday":6,"Wednesday":3,"Thursday":2,"Friday":1,"Saturday":4,"Sunday":7},"CT-NEW LONDON":{"Monday":5,"Tuesday":6,"Wednesday":3,"Thursday":4,"Friday":1,"Saturday":2,"Sunday":7},"RI-EAST PROVIDENCE":{"Monday":6,"Tuesday":1,"Wednesday":4,"Thursday":5,"Friday":3,"Saturday":2,"Sunday":7},"TN-SHALLOWFORD RD":{"Monday":5,"Tuesday":4,"Wednesday":2,"Thursday":6,"Friday":1,"Saturday":3,"Sunday":7},"TN-KEITH ST":{"Monday":3,"Tuesday":4,"Wednesday":1,"Thursday":5,"Friday":2,"Saturday":6,"Sunday":7},"TN-MAGNOLIA":{"Monday":4,"Tuesday":3,"Wednesday":1,"Thursday":5,"Friday":2,"Saturday":6,"Sunday":7},"TN-WESTERN AVE":{"Monday":3,"Tuesday":5,"Wednesday":2,"Thursday":4,"Friday":1,"Saturday":6,"Sunday":7},"TN-NORTH BROARDWAY":{"Monday":5,"Tuesday":3,"Wednesday":2,"Thursday":6,"Friday":1,"Saturday":4,"Sunday":7},"TN-MORRISTOWN":{"Monday":5,"Tuesday":4,"Wednesday":2,"Thursday":3,"Friday":1,"Saturday":6,"Sunday":7},"RI-751BROAD":{"Monday":5,"Tuesday":2,"Wednesday":4,"Thursday":6,"Friday":3,"Saturday":1,"Sunday":7},"MA-WESTERN AVE":{"Monday":5,"Tuesday":4,"Wednesday":1,"Thursday":6,"Friday":2,"Saturday":3,"Sunday":7},"MA-KELLEY SQUARE":{"Monday":5,"Tuesday":7,"Wednesday":2,"Thursday":4,"Friday":1,"Saturday":3,"Sunday":7},"RI-BROAD ST":{"Monday":5,"Tuesday":3,"Wednesday":4,"Thursday":6,"Friday":2,"Saturday":1,"Sunday":7},"RI-NEWPORT AVE":{"Monday":4,"Tuesday":3,"Wednesday":2,"Thursday":5,"Friday":1,"Saturday":6,"Sunday":7},"RI-PROVIDENCE PLACE MALL":{"Monday":7,"Tuesday":4,"Wednesday":5,"Thursday":6,"Friday":2,"Saturday":1,"Sunday":3},"MA- SOUTH SHORE MALL":{"Monday":3,"Tuesday":4,"Wednesday":6,"Thursday":7,"Friday":2,"Saturday":1,"Sunday":5},"RI-HARTFORD AVE":{"Monday":4,"Tuesday":5,"Wednesday":3,"Thursday":6,"Friday":2,"Saturday":1,"Sunday":7},"AR-COLONEL GLENN":{"Monday":4,"Tuesday":2,"Wednesday":1,"Thursday":6,"Friday":3,"Saturday":5,"Sunday":7},"AR-RADIO GEYER":{"Monday":4,"Tuesday":5,"Wednesday":2,"Thursday":6,"Friday":1,"Saturday":3,"Sunday":7}}}
+;
+
+// ── Holiday Configuration ─────────────────────────────────────────────────────
+// Add holidays here. Each entry: { name, date: 'MM/DD/YYYY', day: 'DayOfWeek', closed: [...locNames] }
+// Use 'ALL' to close every location, 'MALLS' for mall-only, or list specific names.
+// closed:[] means no locations officially closed (holiday noted but no exemptions).
+// ── Coach / Personnel Overrides ───────────────────────────────────────────────
+// Add entries here when a coach changes. The dashboard will automatically show
+// the correct coach based on the week being viewed.
+// effectiveDate: first date the change applies (MM/DD/YYYY), inclusive.
+const COACH_OVERRIDES = [
+  {
+    effectiveDate: '04/02/2026',   // Week of 04/02 is the first week after 4/1
+    coach: 'TBD',
+    replaces: 'Mike Cobbs',        // only locations that had this coach are affected
+    // locations: null means apply to ALL locations that had `replaces` as coach
+    // set locations: ['LOC-NAME', ...] to limit to specific stores
+    locations: null
+  }
+];
+
+// Returns the correct coach for a location given a week label (or today if no label)
+
+const HOLIDAYS = [
+  {
+    name: 'Easter Sunday',
+    date: '04/05/2026',   // The Sunday that falls in the week of Mon 03/30 – Sun 04/05
+    day:  'Sunday',
+    closed: 'MALLS'       // ← Change to 'ALL', [], or ['LOC-NAME', ...] once confirmed
+  }
+];
+
+// Returns the holiday object if a given date string (MM/DD/YYYY) matches a holiday, else null
+function getHoliday(dateStr){
+  return HOLIDAYS.find(h=>h.date===dateStr)||null;
+}
+
+// Given a week label "Mon MM/DD/YYYY – Sun MM/DD/YYYY", return a map of { 'Sunday': holidayObj, ... }
+// for any day in that week that has a holiday.
+function getWeekHolidays(weekLabel){
+  if(!weekLabel)return{};
+  const result={};
+  // Extract all MM/DD/YYYY dates from the label
+  const dates=weekLabel.match(/\d{1,2}\/\d{1,2}\/\d{4}/g)||[];
+  // Build a date→dayName map for the full week
+  const m=weekLabel.match(/Mon\s+(\d{1,2}\/\d{1,2}\/\d{4})/);
+  if(!m)return result;
+  const monParts=m[1].split('/');
+  const monDate=new Date(+monParts[2],+monParts[0]-1,+monParts[1]);
+  DAYS.forEach((day,i)=>{
+    const d=new Date(monDate); d.setDate(monDate.getDate()+i);
+    const ds=`${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}/${d.getFullYear()}`;
+    const h=getHoliday(ds);
+    if(h)result[day]=h;
+  });
+  return result;
+}
+
+// Returns true if a location is officially closed for a given holiday
+function isLocClosedForHoliday(locName, holiday){
+  if(!holiday)return false;
+  const c=holiday.closed;
+  if(c==='ALL')return true;
+  if(c==='MALLS')return LOC_DATA.locations[locName]?.is_mall===true;
+  if(Array.isArray(c))return c.includes(locName);
+  return false;
+}
+
+function fmtWeekLabel(monDateStr, sunDateStr) {
+  // monDateStr e.g. "03/30/2026", sunDateStr e.g. "04/05/2026"
+  // Returns "Mon 03/30/2026 – Sun 04/05/2026"
+  if (!monDateStr || !sunDateStr) return monDateStr || sunDateStr || '';
+  return 'Mon ' + monDateStr.trim() + ' – Sun ' + sunDateStr.trim();
+}
+
+function sortWeeks() {
+  // Remove weeks with no valid label first
+  Object.keys(weeks).forEach(k=>{
+    const w=weeks[k];
+    if(!w.label||!/^Mon\s+\d{1,2}\/\d{1,2}\/\d{4}\s*[–-]\s*Sun\s+\d{1,2}\/\d{1,2}\/\d{4}$/.test(w.label.trim()))
+      delete weeks[k];
+  });
+  // Deduplicate by Mon date — keep properly formatted label wins
+  const seenDates={};
+  Object.keys(weeks).forEach(k=>{
+    const d=parseWeekDate(weeks[k].label).getTime();
+    if(d===0)return;
+    if(seenDates[d]){
+      // Keep the one that starts with "Mon "
+      const existing=weeks[seenDates[d]];
+      if(existing.label.startsWith('Mon ')){delete weeks[k];}
+      else{delete weeks[seenDates[d]];seenDates[d]=k;}
+    } else {seenDates[d]=k;}
+  });
+  const entries = Object.entries(weeks);
+  entries.sort((a, b) => {
+    const da = parseWeekDate(a[1].label);
+    const db = parseWeekDate(b[1].label);
+    return da - db;
+  });
+  // Rebuild weeks in sorted order with stable keys
+  const sorted = {};
+  entries.forEach(([, w], i) => {
+    const newKey = 'wk' + i;
+    sorted[newKey] = { ...w, key: newKey };
+  });
+  weeks = sorted;
+  // Update curWk to last (most recent)
+  const keys = Object.keys(weeks);
+  if (keys.length) curWk = keys[keys.length - 1];
+}
+
+function parseWeekDate(label) {
+  // Try "Mon MM/DD/YYYY – Sun MM/DD/YYYY" format
+  const m = label.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m) return new Date(+m[3], +m[1]-1, +m[2]);
+  return new Date(0);
+}
+
+
+const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+const DS=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+let weeks={}, curWk=null, locDetailFrom='locations';
+
+function pT(s){
+  if(!s)return null;
+  s=s.trim().toUpperCase().replace(/\./g,'').replace(/\s+/g,' ');
+  const m=s.match(/(\d{1,2})(?::(\d{2}))?\s*(AM|PM)/);
+  if(!m)return null;
+  let h=parseInt(m[1]),mn=parseInt(m[2]||'0');
+  if(m[3]==='PM'&&h!==12)h+=12;
+  if(m[3]==='AM'&&h===12)h=0;
+  return new Date(2000,0,1,h,mn);
+}
+function hA(a,b){if(!a||!b)return 0;let d=(b-a)/3600000;if(d<0)d+=24;return d;}
+function fT(dt){if(!dt)return'?';let h=dt.getHours(),m=dt.getMinutes(),s=h>=12?'PM':'AM';h=h%12||12;return m?`${h}:${String(m).padStart(2,'0')} ${s}`:`${h} ${s}`;}
+function pCell(cell){
+  if(!cell)return null;
+  const txt=String(cell).replace(/\s+/g,' ').trim();
+  if(!txt||txt==='OFF'||txt==='—'||txt==='-')return null;
+  // Match time pattern with flexible spacing: "09:30 AM - 07:00 PM" or "09:30 AM   - 07:00 PM  "
+  const m=txt.match(/(\d{1,2}:\d{2}\s*[AP]M)\s*-\s*(\d{1,2}:\d{2}\s*[AP]M)/i);
+  if(!m)return null;
+  const s=pT(m[1].trim()),e=pT(m[2].trim());
+  if(!s||!e)return null;
+  return{start:s,end:e,hours:Math.round(hA(s,e)*100)/100};
+}
+function sCls(s){return s>=80?'ok':s>=60?'warn':'err';}
+function tBadge(d){if(d>5)return'<span class="badge up">&#9650; Better</span>';if(d<-5)return'<span class="badge dn">&#9660; Worse</span>';return'<span class="badge eq">= Same</span>';}
+
+// ── Parse HTML-table-as-xls (the actual format exported) ────────────────────
+function parseHTMLSchedule(text) {
+  // Extract all <td> text content in document order
+  const tmp = document.createElement('div');
+  tmp.innerHTML = text;
+  const allTds = Array.from(tmp.querySelectorAll('td'));
+  if (!allTds.length) return null;
+
+  const cells = allTds.map(td => td.textContent.replace(/\s+/g,' ').trim());
+
+  // Header = first 9 cells: "User name", Mon, Tue, Wed, Thu, Fri, Sat, Sun, Total
+  // Detect day columns from header
+  const dayCols = [];
+  let headerLen = 0;
+  for (let i = 0; i < Math.min(cells.length, 15); i++) {
+    const m = cells[i].match(/(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s*-\s*(\d{1,2}\/\d{1,2}\/\d{4})/i);
+    if (m) {
+      const di = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
+        .findIndex(d => d.toLowerCase() === m[1].toLowerCase());
+      dayCols.push({ idx: i - 1, day: DAYS[di], label: cells[i] }); // idx relative to emp row start
+    }
+    if (cells[i].toLowerCase() === 'total' && dayCols.length === 7) {
+      headerLen = i + 1; break;
+    }
+  }
+  if (!dayCols.length || headerLen === 0) return null;
+
+  const monDC=dayCols.find(d=>d.day==='Monday');const sunDC=dayCols.find(d=>d.day==='Sunday');
+  const monD=(monDC?.label||'').split(' - ')[1]||'';
+  const sunD=(sunDC?.label||'').split(' - ')[1]||'';
+  const wl=fmtWeekLabel(monD,sunD);
+
+  const sched = {}; let curLoc = null;
+  let i = headerLen;
+
+  while (i < cells.length) {
+    const c = cells[i];
+
+    // Location header: single cell with EL number
+    if (/^EL\d+\s*-\s*/.test(c)) {
+      curLoc = c.split(' - ').slice(1).join(' - ').trim();
+      sched[curLoc] = { days: Object.fromEntries(DAYS.map(d => [d, []])) };
+      i++; continue;
+    }
+
+    // Total row: skip 9 cells (Total + 7 day totals + weekly total)
+    if (c.toLowerCase() === 'total') { i += 9; continue; }
+
+    // End marker or blank
+    if (!c || c === '-') { i++; continue; }
+
+    // Employee row: name cell, then 7 shift cells, then 1 weekly total = 9 cells
+    const dashIdx = c.indexOf('-');
+    if (dashIdx > 0 && curLoc && i + 8 < cells.length) {
+      const empId   = c.slice(0, dashIdx).trim();
+      const empName = c.slice(dashIdx + 1).trim();
+      if (empId && empName && /^[A-Z]{3}\d+/.test(empId)) {
+        dayCols.forEach(dc => {
+          const cellTxt = cells[i + 1 + dc.idx] || '';
+          const sh = pCell(cellTxt);
+          if (sh) { sh.empId = empId; sh.emp = empName; sched[curLoc].days[dc.day].push(sh); }
+        });
+        i += 9; continue;
+      }
+    }
+
+    i++;
+  }
+
+  // Only return if we actually found locations
+  if (!Object.keys(sched).length) return null;
+  return { label: wl, sched };
+}
+
+// ── Parse real xlsx via XLSX.js ───────────────────────────────────────────────
+function parseXLSXSchedule(wb) {
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+  if (!rows.length) return null;
+  const header = rows[0];
+  const dayCols = [];
+  header.forEach((h, i) => {
+    const m = String(h).match(/(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s*-\s*(\d{1,2}\/\d{1,2}\/\d{4})/i);
+    if (m) {
+      const di = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
+        .findIndex(d => d.toLowerCase() === m[1].toLowerCase());
+      dayCols.push({ idx: i, day: DAYS[di], label: String(h) });
+    }
+  });
+  if (!dayCols.length) return null;
+  const monDate=(dayCols.find(d=>d.day==='Monday')?.label||'').split(' - ')[1]||'';
+  const sunDate=(dayCols.find(d=>d.day==='Sunday')?.label||'').split(' - ')[1]||'';
+  const wl=fmtWeekLabel(monDate,sunDate);
+  const sched = {}; let curLoc = null;
+  for (let ri = 1; ri < rows.length; ri++) {
+    const row = rows[ri]; const u = String(row[0]||'').replace(/\s+/g,' ').trim();
+    if (!u || u === '-') continue;
+    const el = u.match(/EL\d+\s*-\s*(.+)/);
+    if (el) { curLoc = el[1].trim(); sched[curLoc] = {days: Object.fromEntries(DAYS.map(d=>[d,[]]))}; continue; }
+    if (u.toLowerCase().startsWith('total') || !curLoc) continue;
+    dayCols.forEach(dc => {
+      const sh = pCell(row[dc.idx]);
+      if (sh) { const p=u.split('-'); sh.empId=p[0].trim(); sh.emp=p.slice(1).join('-').trim(); sched[curLoc].days[dc.day].push(sh); }
+    });
+  }
+  return { label: wl, sched };
+}
+
+function parseFile(wb) { return parseXLSXSchedule(wb); }
+
+function getViols(shift,day,locName,all){
+  const info=LOC_DATA.locations[locName];if(!info)return[];
+  const viols=[];const dh=info.hours[day];
+  const oT=dh?pT(dh.open):null,cT=dh?pT(dh.close):null;
+  // CT locations require 4h minimum; all others require 3h minimum
+  const minHrs = locName.startsWith('CT-') ? 4.0 : 3.0;
+  if(shift.hours<minHrs)viols.push({type:'SHORT SHIFT',msg:`${shift.hours.toFixed(1)}h (min ${minHrs}h)`,sev:'warn'});
+  if(oT&&all.length){
+    const earliest=all.reduce((a,b)=>a.start<b.start?a:b);
+    if(shift.start.getTime()===earliest.start.getTime()&&shift.start>oT&&hA(oT,shift.start)*60>15)
+      viols.push({type:'LATE OPEN',msg:`Starts ${fT(shift.start)}, opens ${fT(oT)}`,sev:'err'});
+  }
+  if(cT&&all.length){
+    const latest=all.reduce((a,b)=>a.end>b.end?a:b);
+    if(shift.end.getTime()===latest.end.getTime()&&shift.end<cT&&hA(shift.end,cT)*60>15)
+      viols.push({type:'EARLY CLOSE',msg:`Ends ${fT(shift.end)}, closes ${fT(cT)}`,sev:'err'});
+  }
+  if(locName!=='MA-KELLEY SQUARE'){
+    let sl=new Date(shift.start);
+    while(sl<shift.end){const se=new Date(sl.getTime()+30*60000);const on=all.filter(s=>s.start<=sl&&s.end>=se).length;if(on>2){viols.push({type:'OVERSTAFFED',msg:`${on} emps at ${fT(sl)}`,sev:'err'});break;}sl=se;}
+  }
+  const s2=(locName==='MA-HOLYOKE');
+  if(info.is_2me&&oT&&cT&&!(day==='Sunday'&&!s2)){
+    const ds=new Date(oT.getTime()+3600000),de=new Date(cT.getTime()-3600000);
+    let sl=new Date(ds);
+    while(sl<de){const se=new Date(sl.getTime()+30*60000);const on=all.filter(s=>s.start<=sl&&s.end>=se).length;if(on<2){viols.push({type:'2ME GAP',msg:`Only ${on} emp ${fT(sl)}-${fT(se)}`,sev:'err'});break;}sl=se;}
+  }
+  return viols;
+}
+
+function scoreLoc(locName,ls,weekLabel){
+  let total=0;const types={};
+  const holidays=weekLabel?getWeekHolidays(weekLabel):{};
+  DAYS.forEach(day=>{
+    // Skip scoring entirely if location is officially closed for a holiday
+    const hol=holidays[day];
+    if(hol&&isLocClosedForHoliday(locName,hol))return;
+    const shifts=ls?ls.days[day]:[];
+    if(!shifts||!shifts.length){
+      if(LOC_DATA.locations[locName]?.hours[day]){total++;types['NO COVERAGE']=(types['NO COVERAGE']||0)+1;}return;
+    }
+    const seen=new Set();
+    shifts.forEach(sh=>{
+      getViols(sh,day,locName,shifts).forEach(v=>{
+        const k=day+v.type;if(!seen.has(k)){seen.add(k);total++;types[v.type]=(types[v.type]||0)+1;}
+      });
+    });
+  });
+  return{violations:total,types,score:Math.max(0,100-total*10)};
+}
+
+function findConflicts(sched){
+  const ed={};
+  Object.entries(sched).forEach(([loc,ls])=>{
+    DAYS.forEach(day=>{
+      (ls.days[day]||[]).forEach(sh=>{
+        if(!ed[sh.empId])ed[sh.empId]={name:sh.emp};
+        if(!ed[sh.empId][day])ed[sh.empId][day]=[];
+        ed[sh.empId][day].push({...sh,loc});
+      });
+    });
+  });
+  const c=[];
+  Object.entries(ed).forEach(([id,data])=>{
+    DAYS.forEach(day=>{
+      const shifts=data[day]||[];
+      for(let i=0;i<shifts.length;i++)for(let j=i+1;j<shifts.length;j++){
+        const a=shifts[i],b=shifts[j];
+        if(a.loc===b.loc)continue;
+        c.push({empId:id,emp:data.name,day,loc1:a.loc,s1:a.start,e1:a.end,loc2:b.loc,s2:b.start,e2:b.end,overlap:a.start<b.end&&b.start<a.end});
+      }
+    });
+  });
+  return c;
+}
+
+function serSched(s){const o={};Object.entries(s).forEach(([l,ls])=>{o[l]={days:{}};DAYS.forEach(d=>{o[l].days[d]=(ls.days[d]||[]).map(sh=>({...sh,start:sh.start.toISOString(),end:sh.end.toISOString()}));});});return o;}
+function deSched(s){const o={};Object.entries(s).forEach(([l,ls])=>{o[l]={days:{}};DAYS.forEach(d=>{o[l].days[d]=(ls.days[d]||[]).map(sh=>({...sh,start:new Date(sh.start),end:new Date(sh.end)}));});});return o;}
+
+async function saveW(){await saveToSP();}
+async function loadW(){
+  const spLoaded=await loadFromSP();
+  if(!spLoaded){
+    try{
+      const s=localStorage.getItem('sw');if(!s)return;
+      JSON.parse(s).forEach(w=>{const sc=deSched(w.sched);weeks[w.key]={key:w.key,label:w.label,sched:sc,conflicts:findConflicts(sc)};});
+      const ks=Object.keys(weeks);if(ks.length)curWk=ks[ks.length-1];
+    }catch(e){}
+  }
+  if(Object.keys(weeks).length)sortWeeks();
+}
+
+
+
+// ── Parse flat XLS format (raw export: one row per employee) ─────────────────
+function parseFlatSchedule(wb) {
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null});
+  if (!rows.length) return null;
+
+  // Find header row - look for 'store', 'company', 'firstname' etc
+  let headerIdx = -1;
+  let colMap = {};
+  for (let ri = 0; ri < Math.min(rows.length, 5); ri++) {
+    const r = rows[ri].map(c => c ? String(c).toLowerCase().trim() : '');
+    if (r.includes('store') && r.includes('company') && r.includes('firstname')) {
+      headerIdx = ri;
+      r.forEach((h, i) => { colMap[h] = i; });
+      break;
+    }
+  }
+  if (headerIdx < 0) return null;
+
+  // Extract week label from filename or use a default
+  // We'll prompt user for week dates during load
+  const dayPrefixes = ['mon','tue','wed','thu','fri','sat','sun'];
+  const dayMap = dayPrefixes.map(p => ({
+    in:  colMap[p+'_in'],
+    out: colMap[p+'_out'],
+    day: DAYS[dayPrefixes.indexOf(p)]
+  }));
+
+  const sched = {};
+
+  for (let ri = headerIdx + 1; ri < rows.length; ri++) {
+    const row = rows[ri];
+    if (!row || !row[colMap['store']]) continue;
+
+    const locName = String(row[colMap['company']]||'').trim();
+    if (!locName) continue;
+
+    if (!sched[locName]) sched[locName] = { days: Object.fromEntries(DAYS.map(d=>[d,[]])) };
+
+    const empId   = String(row[colMap['username']]||'').trim();
+    const empName = (String(row[colMap['firstname']]||'').trim() + ' ' +
+                     String(row[colMap['lastname']]||'').trim()).trim();
+    if (!empId || !empName) continue;
+
+    dayMap.forEach(dm => {
+      const inVal  = dm.in  !== undefined ? row[dm.in]  : null;
+      const outVal = dm.out !== undefined ? row[dm.out] : null;
+      if (!inVal || !outVal) return;
+      const s = pT(String(inVal));
+      const e = pT(String(outVal));
+      if (!s || !e) return;
+      sched[locName].days[dm.day].push({
+        empId, emp: empName,
+        start: s, end: e,
+        hours: Math.round(hA(s,e)*100)/100
+      });
+    });
+  }
+
+  if (!Object.keys(sched).length) return null;
+  return { sched, needsWeekLabel: true };
+}
+
+async function handleFile(file){
+  if(!file)return;
+  // Read as text first to detect HTML-as-xls
+  const textReader=new FileReader();
+  textReader.onload=async e=>{
+    const text=e.target.result;
+    let res=null;
+    if(text.trimStart().startsWith('<')){
+      res=parseHTMLSchedule(text);
+    }
+    if(!res){
+      // Try binary XLSX parsers
+      const binReader=new FileReader();
+      binReader.onload=async e2=>{
+        try{
+          const wb=XLSX.read(e2.target.result,{type:'array'});
+          // Try flat format first (clean raw export)
+          res=parseFlatSchedule(wb);
+          // Fall back to formatted export parser
+          if(!res) res=parseFile(wb);
+        }catch(err){res=null;}
+        if(!res){
+          alert('Could not parse schedule file.\nMake sure you are uploading the .XLS file downloaded from your scheduling system.');
+          return;
+        }
+        // If the file has no embedded week dates, derive Mon–Sun from today or ask
+        if(res.needsWeekLabel){
+          // Find the most recent Monday on or before today
+          const today=new Date();
+          const day=today.getDay(); // 0=Sun, 1=Mon...
+          const daysToMon=day===0?6:day-1;
+          const mon=new Date(today); mon.setDate(today.getDate()-daysToMon);
+          const sun=new Date(mon); sun.setDate(mon.getDate()+6);
+          const fmt=d=>`${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()}`;
+          const autoLabel=fmtWeekLabel(fmt(mon),fmt(sun));
+          const wl=prompt('Confirm or edit the week for this schedule:',autoLabel);
+          res.label=wl||autoLabel;
+          delete res.needsWeekLabel;
+        }
+        await finishLoad(res);
+      };
+      binReader.readAsArrayBuffer(file);
+      return;
+    }
+    await finishLoad(res);
+  };
+  textReader.readAsText(file);
+}
+
+async function finishLoad(res){
+  // Check if a week with the same label already exists — replace it if so
+  const existingKey=Object.keys(weeks).find(k=>weeks[k].label===res.label);
+  const key=existingKey||('wk'+Object.keys(weeks).length);
+  const isReplace=!!existingKey;
+  weeks[key]={...res,key,conflicts:findConflicts(res.sched)};
+  sortWeeks();
+  curWk=Object.keys(weeks)[Object.keys(weeks).length-1];
+  await saveW();renderAll();populateOvSelects();nav('overview');
+  showToast(isReplace?'Schedule replaced: '+res.label:'Schedule loaded: '+res.label);
+}
+
+function clearAll(){if(confirm('Clear all saved schedule history?')){weeks={};curWk=null;localStorage.removeItem('sw');renderAll();nav('upload');}}
+
+const PTITLES={upload:'Upload Schedule',overview:'Overview',locations:'All Locations','loc-detail':'Location Detail',managers:'Manager Reports',coaches:'Coach Dashboard',conflicts:'Employee Conflicts',tracker:'Week-over-Week Tracker',setup:'SharePoint Setup',understaffed:'Understaffed Locations',monthly:'Monthly Overview',personnel:'Personnel Directory'};
+
+// ── PIN Access Control ────────────────────────────────────────────────────────
+const ADMIN_PIN = '3833';
+let isAdminUnlocked = false;
+let pinBuffer = '';
+
+function updatePinState(){
+  document.getElementById('pin-status-locked').style.display   = isAdminUnlocked ? 'none'  : 'flex';
+  document.getElementById('pin-status-unlocked').style.display = isAdminUnlocked ? 'flex'  : 'none';
+  const uploadBtn = document.getElementById('topbar-upload-btn');
+  if(uploadBtn) uploadBtn.style.display = isAdminUnlocked ? '' : 'none';
+  // Show/hide Upload nav item and Personnel nav item for non-admins
+  document.querySelectorAll('.ni').forEach(ni => {
+    const onclick = ni.getAttribute('onclick') || '';
+    if(onclick.includes("nav('upload')") || onclick.includes("nav('personnel')") || onclick.includes("nav('setup')")){
+      ni.style.display = isAdminUnlocked ? '' : 'none';
+    }
+  });
+  // Update mobile nav admin items
+  updateMobileAdminItems();
+}
+
+function showPinModal(){
+  pinBuffer = '';
+  updatePinDots();
+  document.getElementById('pin-error').textContent = '';
+  document.getElementById('pin-modal').style.display = 'flex';
+}
+
+function closePinModal(){
+  document.getElementById('pin-modal').style.display = 'none';
+  pinBuffer = '';
+  updatePinDots();
+}
+
+function pinEntry(digit){
+  if(pinBuffer.length >= 4) return;
+  pinBuffer += digit;
+  updatePinDots();
+  if(pinBuffer.length === 4) setTimeout(checkPin, 120);
+}
+
+function pinBackspace(){
+  pinBuffer = pinBuffer.slice(0, -1);
+  updatePinDots();
+}
+
+function pinClear(){
+  pinBuffer = '';
+  updatePinDots();
+}
+
+function updatePinDots(){
+  const dots = document.querySelectorAll('.pin-dot');
+  dots.forEach((d, i) => {
+    d.classList.toggle('filled', i < pinBuffer.length);
+  });
+}
+
+function checkPin(){
+  if(pinBuffer === ADMIN_PIN){
+    isAdminUnlocked = true;
+    closePinModal();
+    updatePinState();
+    showToast('Admin access unlocked');
+  } else {
+    document.getElementById('pin-error').textContent = '✗ Incorrect PIN — try again';
+    pinBuffer = '';
+    updatePinDots();
+    // Shake animation
+    const modal = document.querySelector('#pin-modal > div');
+    if(modal){ modal.style.animation='shake .3s'; setTimeout(()=>modal.style.animation='',400); }
+  }
+}
+
+function lockDashboard(){
+  isAdminUnlocked = false;
+  updatePinState();
+  // If currently on a protected page, redirect to overview or upload
+  const active = document.querySelector('.page.active');
+  if(active){
+    const pid = active.id.replace('page-','');
+    if(['upload','personnel','setup'].includes(pid)) nav(Object.keys(weeks).length ? 'overview' : 'upload');
+  }
+  showToast('Dashboard locked');
+}
+
+// Guard function — call instead of nav() for admin-only pages
+function adminNav(page){
+  if(!isAdminUnlocked){ showPinModal(); return; }
+  nav(page);
+}
+
+// Keyboard support for PIN modal
+document.addEventListener('keydown', e => {
+  if(document.getElementById('pin-modal').style.display === 'flex'){
+    if(e.key >= '0' && e.key <= '9') pinEntry(e.key);
+    else if(e.key === 'Backspace') pinBackspace();
+    else if(e.key === 'Escape') closePinModal();
+  }
+});
+
+// Add shake keyframe
+const shakeStyle = document.createElement('style');
+shakeStyle.textContent = '@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}';
+document.head.appendChild(shakeStyle);
+
+// ── Mobile navigation ─────────────────────────────────────────────────────────
+const MOBILE_NAV_PAGES = ['overview','locations','coaches','understaffed'];
+
+function mobileNav(page){
+  closeMobileMore();
+  nav(page);
+  updateMobileNav(page);
+}
+
+function updateMobileNav(page){
+  // Update bottom bar active states
+  MOBILE_NAV_PAGES.forEach(p => {
+    const btn = document.getElementById('mn-'+p);
+    if(btn) btn.classList.toggle('active', p === page);
+  });
+  const moreBtn = document.getElementById('mn-more');
+  if(moreBtn) moreBtn.classList.toggle('active', !MOBILE_NAV_PAGES.includes(page));
+  // Update drawer active states
+  document.querySelectorAll('.mmd-item').forEach(el => {
+    el.classList.remove('active');
+  });
+  // Update admin-only items visibility
+  updateMobileAdminItems();
+}
+
+function updateMobileAdminItems(){
+  document.querySelectorAll('.mmd-item.admin-only').forEach(el => {
+    el.classList.toggle('visible', isAdminUnlocked);
+  });
+  const lockLabel = document.getElementById('mmd-lock-label');
+  if(lockLabel) lockLabel.textContent = isAdminUnlocked ? 'Lock Dashboard' : 'Sign In (Admin)';
+}
+
+function toggleMobileMore(){
+  const drawer = document.getElementById('mobile-more-drawer');
+  if(drawer) drawer.classList.toggle('open');
+}
+
+function closeMobileMore(){
+  const drawer = document.getElementById('mobile-more-drawer');
+  if(drawer) drawer.classList.remove('open');
+}
+
+// Close more drawer when tapping outside it
+document.addEventListener('click', e => {
+  const drawer = document.getElementById('mobile-more-drawer');
+  const moreBtn = document.getElementById('mn-more');
+  if(drawer && drawer.classList.contains('open') &&
+     !drawer.contains(e.target) && e.target !== moreBtn && !moreBtn?.contains(e.target)){
+    closeMobileMore();
+  }
+});
+
+
+
+function nav(page){
+  // Block protected pages for non-admins
+  if(!isAdminUnlocked && ['upload','personnel','setup'].includes(page)){
+    showPinModal(); return;
+  }
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  document.querySelector(`.ni[onclick="nav('${page}')"]`)?.classList.add('active');
+  document.getElementById('page-title').textContent=PTITLES[page]||page;
+  if(!curWk&&page!=='upload'&&page!=='personnel'){nav('upload');return;}
+  if(page==='overview')renderOverview();
+  if(page==='locations'){popLocFilters();renderLocTable();}
+  if(page==='managers'){popMgr();renderMgr();}
+  if(page==='coaches'){popCoach();renderCoach();}
+  if(page==='conflicts')renderConflicts();
+  if(page==='monthly'){populatePageWkSelect('mo-wk');renderMonthly();}
+  if(page==='understaffed'){populatePageWkSelect('us-wk');renderUnderstaffed();}
+  if(page==='tracker')renderTracker();
+  if(page==='personnel')renderPersonnel();
+  }
+
+
+
+
+function populateOvSelects(){
+  const s1=document.getElementById('ov-wk1');
+  const s2=document.getElementById('ov-wk2');
+  if(!s1||!s2)return;
+  const validWks=Object.values(weeks).filter(w=>w.label&&/^Mon\s+\d{1,2}\/\d{1,2}\/\d{4}\s*[–-]\s*Sun\s+\d{1,2}\/\d{1,2}\/\d{4}$/.test(w.label.trim()));
+  const opts='<option value="">— Select week —</option>'+validWks.map(w=>`<option value="${w.key}">${w.label}</option>`).join('');
+  const cur1=s1.value, cur2=s2.value;
+  s1.innerHTML=opts; s2.innerHTML=opts;
+  if(cur1&&weeks[cur1])s1.value=cur1; else if(validWks.length>=2)s1.value=validWks[validWks.length-2].key; else if(validWks.length)s1.value=validWks[0].key;
+  if(cur2&&weeks[cur2])s2.value=cur2; else if(validWks.length>=1)s2.value=validWks[validWks.length-1].key;
+  // Sync hidden miss selects
+  const m1=document.getElementById('miss-wk1');
+  const m2=document.getElementById('miss-wk2');
+  if(m1&&s1.value){m1.innerHTML=`<option value="${s1.value}">${weeks[s1.value]?.label||''}</option>`;m1.value=s1.value;}
+  if(m2&&s2.value){m2.innerHTML=`<option value="${s2.value}">${weeks[s2.value]?.label||''}</option>`;m2.value=s2.value;}
+  // Sync all other tab selects to stay in step with loaded weeks
+  populatePageWkSelect('us-wk');
+  populatePageWkSelect('mo-wk');
+  populateTrSelects();
+  populatePageWkSelect('conf-wk');
+}
+
+function renderOverview(){
+  populateOvSelects();
+  const s1=document.getElementById('ov-wk1');
+  const s2=document.getElementById('ov-wk2');
+  const wk1=s1?.value?weeks[s1.value]:null;
+  const wk2=s2?.value?weeks[s2.value]:null;
+  const w=wk2||wk1;
+  if(!w)return;
+
+  // When overview week changes, reset all other tab selects so they re-sync on next visit
+  const ovActiveKey=getOvActiveWkKey();
+  ['lc-wk','mgr-wk','cch-wk','conf-wk','us-wk','mo-wk'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el)el.value=''; // cleared — will re-sync to ov on next populatePageWkSelect
+  });
+  // tracker mirrors both overview selects
+  const tr1=document.getElementById('tr-wk1');const tr2=document.getElementById('tr-wk2');
+  if(tr1)tr1.value='';if(tr2)tr2.value='';
+
+  const allLocs=Object.keys(LOC_DATA.locations);
+
+  // Compute scores for each week
+  function weekStats(wk){
+    if(!wk)return null;
+    let totalV=0;const vt={};const cs={};
+    const missing=allLocs.filter(l=>!wk.sched[l]);
+    allLocs.forEach(loc=>{
+      const sc=scoreLoc(loc,wk.sched[loc],wk.label);
+      totalV+=sc.violations;
+      Object.entries(sc.types).forEach(([t,n])=>vt[t]=(vt[t]||0)+n);
+      const c=getCoach(loc,wk.label)||'Unassigned';
+      if(!cs[c])cs[c]={total:0,n:0};cs[c].total+=sc.score;cs[c].n++;
+    });
+    const avg=Math.round(allLocs.reduce((s,l)=>s+scoreLoc(l,wk.sched[l],wk.label).score,0)/allLocs.length);
+    return{totalV,vt,cs,avg,missing,sched:wk.sched,label:wk.label};
+  }
+
+  const s2stats=weekStats(wk2);
+  const s1stats=weekStats(wk1);
+  const curr=s2stats||s1stats;
+  const prev=wk2&&wk1?s1stats:null;
+
+  // ── METRIC CARDS ────────────────────────────────────────────────────────────
+  const avgDelta=prev?curr.avg-prev.avg:null;
+  const vDelta=prev?curr.totalV-prev.totalV:null;
+  const missDelta=prev?curr.missing.length-prev.missing.length:null;
+  const schedDelta=prev?(allLocs.length-curr.missing.length)-(allLocs.length-prev.missing.length):null;
+
+  function deltaChip(d,invertGood=false){
+    if(d===null)return'';
+    const good=invertGood?d<0:d>0;
+    const eq=d===0;
+    const col=eq?'var(--text3)':good?'var(--green)':'var(--red)';
+    const sym=d>0?'▲':d<0?'▼':'=';
+    return`<span style="font-size:11px;color:${col};margin-left:6px">${sym}${Math.abs(d)}${typeof d==='number'&&!Number.isInteger(d)?'':''} vs prev</span>`;
+  }
+
+  document.getElementById('ov-metrics').innerHTML=`
+    <div class="mc"><div class="lbl">Locations scheduled</div>
+      <div class="val">${allLocs.length-curr.missing.length}<span style="font-size:16px;color:var(--text2)">/${allLocs.length}</span></div>
+      <div class="sub">${prev?`${deltaChip(schedDelta)} last week had ${allLocs.length-prev.missing.length}`:curr.missing.length+' missing'}</div></div>
+    <div class="mc ${curr.missing.length>5?'danger':curr.missing.length>0?'warning':'success'}">
+      <div class="lbl">Missing schedules</div>
+      <div class="val">${curr.missing.length}</div>
+      <div class="sub">${prev?`${deltaChip(-missDelta)} prev: ${prev.missing.length}`:'no submission'}</div></div>
+    <div class="mc ${curr.totalV>50?'danger':curr.totalV>20?'warning':''}">
+      <div class="lbl">Total violations</div>
+      <div class="val">${curr.totalV}</div>
+      <div class="sub">${prev?`${deltaChip(-vDelta)} prev: ${prev.totalV}`:'this week'}</div></div>
+    <div class="mc ${curr.avg>=80?'success':curr.avg>=60?'warning':'danger'}">
+      <div class="lbl">Avg compliance</div>
+      <div class="val">${curr.avg}%</div>
+      <div class="sub">${prev?`${deltaChip(avgDelta)} prev: ${prev.avg}%`:'all locations'}</div></div>`;
+
+  // ── HINT + HOLIDAY NOTICE ──────────────────────────────────────────────────
+  const hint=document.getElementById('ov-wk-hint');
+  if(hint)hint.textContent=prev?`Showing change from ${wk1.label} → ${wk2.label}`:'Upload more weeks to see trends';
+  // Show holiday banner if active week has holidays
+  const activeWkForHols=wk2||wk1;
+  const holsThisWeek=activeWkForHols?getWeekHolidays(activeWkForHols.label):{};
+  const holDays=Object.entries(holsThisWeek);
+  const holBanner=document.getElementById('ov-hol-banner');
+  if(holBanner){
+    if(holDays.length){
+      const holList=[...new Set(holDays.map(([,h])=>h.name))].join(' · ');
+      const affected=Object.keys(LOC_DATA.locations).filter(l=>holDays.some(([day,h])=>isLocClosedForHoliday(l,h))).length;
+      holBanner.innerHTML=`<div style="background:#FFF8E7;border:1px solid #F6C90E;border-radius:var(--rl);padding:12px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <span style="font-size:18px">🎄</span>
+        <span style="font-size:13px;font-weight:700;color:#7C5C00">${holList}</span>
+        <span style="font-size:12px;color:#7C5C00">falls in this week — <strong>${affected}</strong> location${affected!==1?'s':''} closed, exempt from scoring on holiday day${holDays.length>1?'s':''}</span>
+        <span style="font-size:11px;color:#9A7A00;margin-left:auto">Closed day shown in location detail view</span>
+      </div>`;
+      holBanner.style.display='';
+    } else {
+      holBanner.style.display='none';
+    }
+  }
+
+  // ── COMPLIANCE BARS (coach, side by side) ─────────────────────────────────
+  const coaches=Object.keys(curr.cs).sort();
+  const compHTML=coaches.map(c=>{
+    const c2=curr.cs[c];const avg2=Math.round(c2.total/c2.n);
+    const c1=prev?.cs[c];const avg1=c1?Math.round(c1.total/c1.n):null;
+    const d=avg1!==null?avg2-avg1:null;
+    const col=avg2>=80?'#16a34a':avg2>=60?'#d97706':'#dc2626';
+    return`<div class="bar-row" style="margin-bottom:10px">
+      <div class="bar-lbl" style="width:140px">${c}</div>
+      <div style="flex:1">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+          <div class="bar-track" style="flex:1"><div class="bar-fill" style="width:${avg2}%;background:${col}"></div></div>
+          <span style="font-size:12px;font-family:'DM Mono',monospace;width:34px;text-align:right">${avg2}%</span>
+          ${d!==null?`<span style="font-size:11px;color:${d>0?'var(--green)':d<0?'var(--red)':'var(--text3)'};width:32px">${d>0?'▲':d<0?'▼':'='} ${Math.abs(d)}</span>`:''}
+        </div>
+        ${avg1!==null?`<div style="display:flex;align-items:center;gap:6px">
+          <div class="bar-track" style="flex:1;opacity:.4"><div class="bar-fill" style="width:${avg1}%;background:${avg1>=80?'#16a34a':avg1>=60?'#d97706':'#dc2626'}"></div></div>
+          <span style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;width:34px;text-align:right">${avg1}%</span>
+          <span style="font-size:11px;color:var(--text3);width:32px">prev</span>
+        </div>`:''}
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('compliance-bars').innerHTML=compHTML;
+
+  const ctLabel=prev?(curr.avg>prev.avg?`<span style="color:var(--green)">▲ Up ${curr.avg-prev.avg}pts</span>`:`<span style="color:var(--red)">▼ Down ${prev.avg-curr.avg}pts</span>`):'';
+  const el=document.getElementById('ov-compliance-trend');
+  if(el)el.innerHTML=ctLabel;
+
+  // ── VIOLATIONS BARS ────────────────────────────────────────────────────────
+  const allTypes=[...new Set([...Object.keys(curr.vt),...(prev?Object.keys(prev.vt):[])])];
+  const mx=Math.max(...allTypes.map(t=>curr.vt[t]||0),1);
+  const vc={'2ME GAP':'#dc2626','NO COVERAGE':'#b91c1c','SHORT SHIFT':'#d97706','LATE OPEN':'#d97706','EARLY CLOSE':'#d97706','OVERSTAFFED':'#2563eb'};
+  const violHTML=allTypes.sort((a,b)=>(curr.vt[b]||0)-(curr.vt[a]||0)).map(t=>{
+    const n2=curr.vt[t]||0; const n1=prev?prev.vt[t]||0:null;
+    const d=n1!==null?n2-n1:null;
+    return`<div class="bar-row" style="margin-bottom:10px">
+      <div class="bar-lbl">${t}</div>
+      <div style="flex:1">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+          <div class="bar-track" style="flex:1"><div class="bar-fill" style="width:${Math.round(n2/mx*100)}%;background:${vc[t]||'#6b7280'}"></div></div>
+          <span style="font-size:12px;font-family:'DM Mono',monospace;width:26px;text-align:right">${n2}</span>
+          ${d!==null?`<span style="font-size:11px;color:${d<0?'var(--green)':d>0?'var(--red)':'var(--text3)'};width:32px">${d>0?'▲':d<0?'▼':'='} ${Math.abs(d)}</span>`:''}
+        </div>
+        ${n1!==null?`<div style="display:flex;align-items:center;gap:6px">
+          <div class="bar-track" style="flex:1;opacity:.4"><div class="bar-fill" style="width:${Math.round(n1/mx*100)}%;background:${vc[t]||'#6b7280'}"></div></div>
+          <span style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;width:26px;text-align:right">${n1}</span>
+          <span style="font-size:11px;color:var(--text3);width:32px">prev</span>
+        </div>`:''}
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('viol-bars').innerHTML=violHTML;
+
+  const vtTotal2=Object.values(curr.vt).reduce((a,b)=>a+b,0);
+  const vtTotal1=prev?Object.values(prev.vt).reduce((a,b)=>a+b,0):null;
+  const vtLabel=vtTotal1!==null?(vtTotal2<vtTotal1?`<span style="color:var(--green)">▼ Down ${vtTotal1-vtTotal2}</span>`:`<span style="color:var(--red)">▲ Up ${vtTotal2-vtTotal1}</span>`):'';
+  const vel=document.getElementById('ov-viol-trend');
+  if(vel)vel.innerHTML=vtLabel;
+
+  // ── MISSING LIST ──────────────────────────────────────────────────────────
+  // Sync the hidden selects so renderMissingList works
+  const ms1=document.getElementById('miss-wk1');
+  const ms2=document.getElementById('miss-wk2');
+  if(ms1&&wk1){ms1.innerHTML=`<option value="${wk1.key}">${wk1.label}</option>`;ms1.value=wk1.key;}
+  if(ms2&&wk2){ms2.innerHTML=`<option value="${wk2.key}">${wk2.label}</option>`;ms2.value=wk2.key;}
+
+  const msum=document.getElementById('missing-summary');
+  if(msum&&prev){
+    const chg=curr.missing.length-prev.missing.length;
+    msum.innerHTML=chg<0?`<span style="color:var(--green)">▼ ${Math.abs(chg)} fewer than last week</span>`:
+                   chg>0?`<span style="color:var(--red)">▲ ${chg} more than last week</span>`:
+                   `<span style="color:var(--text3)">Same as last week</span>`;
+  }
+  renderMissingList();
+  renderUnderstaffedStrip(wk2||wk1);
+}
+
+
+// ── Understaffing checker ─────────────────────────────────────────────────────
+function getUnderstaffedIssues(locName, ls, weekLabel) {
+  const info = LOC_DATA.locations[locName];
+  if (!info || !ls) return [];
+  const issues = [];
+  const sun2 = (locName === 'MA-HOLYOKE');
+  const holidays = weekLabel ? getWeekHolidays(weekLabel) : {};
+
+  DAYS.forEach(day => {
+    // Skip if location is officially closed for a holiday
+    const hol = holidays[day];
+    if (hol && isLocClosedForHoliday(locName, hol)) return;
+    const shifts = ls.days[day] || [];
+    const dayHours = info.hours[day];
+    if (!dayHours) return;
+    const openT  = pT(dayHours.open);
+    const closeT = pT(dayHours.close);
+    if (!openT || !closeT) return;
+    const totalHrs = hA(openT, closeT);
+    const scheduledHrs = shifts.reduce((s, sh) => s + sh.hours, 0);
+
+    // No coverage at all
+    if (!shifts.length) {
+      issues.push({ day, type: 'NO COVERAGE', detail: 'Store is open but no one scheduled', sev: 'critical' });
+      return;
+    }
+
+    // 2ME double-coverage gap (skip Sunday unless Holyoke)
+    if (info.is_2me && !(day === 'Sunday' && !sun2)) {
+      const ds = new Date(openT.getTime() + 3600000);
+      const de = new Date(closeT.getTime() - 3600000);
+      let gapStart = null;
+      let slot = new Date(ds);
+      while (slot < de) {
+        const se = new Date(slot.getTime() + 1800000);
+        const on = shifts.filter(s => s.start <= slot && s.end >= se).length;
+        if (on < 2 && !gapStart) gapStart = new Date(slot);
+        if (on >= 2 && gapStart) {
+          issues.push({ day, type: '2ME UNDERSTAFFED', detail: `Only 1 emp ${fT(gapStart)}–${fT(slot)} (2 required)`, sev: 'high' });
+          gapStart = null;
+        }
+        slot = se;
+      }
+      if (gapStart) {
+        issues.push({ day, type: '2ME UNDERSTAFFED', detail: `Only 1 emp ${fT(gapStart)}–${fT(de)} (2 required)`, sev: 'high' });
+      }
+    }
+
+    // Below budget (per-day proportional check: scheduled < 80% of expected daily hours)
+    const expectedDaily = totalHrs * (info.is_2me ? 1.8 : 1); // 2ME needs ~2x coverage
+    if (scheduledHrs < expectedDaily * 0.75 && scheduledHrs > 0) {
+      issues.push({ day, type: 'BELOW BUDGET', detail: `${scheduledHrs.toFixed(1)}h scheduled vs ${expectedDaily.toFixed(1)}h needed`, sev: 'medium' });
+    }
+  });
+
+  // Weekly hours vs budget
+  const totalScheduled = DAYS.reduce((s, d) => s + (ls.days[d]||[]).reduce((a, sh) => a + sh.hours, 0), 0);
+  if (typeof info.budget === 'number' && totalScheduled < info.budget * 0.85) {
+    issues.push({ day: 'Week', type: 'UNDER BUDGET', detail: `${totalScheduled.toFixed(1)}h scheduled vs ${info.budget}h budget (${Math.round(totalScheduled/info.budget*100)}%)`, sev: 'medium' });
+  }
+
+  return issues;
+}
+
+function renderUnderstaffedStrip(wk) {
+  const el = document.getElementById('ov-understaffed-strip');
+  if (!el || !wk) return;
+  const allLocs = Object.keys(LOC_DATA.locations);
+  const critical = [], high = [], medium = [];
+  allLocs.forEach(loc => {
+    const ls = wk.sched[loc];
+    const issues = getUnderstaffedIssues(loc, ls, wk.label);
+    const crit  = issues.filter(i => i.sev === 'critical');
+    const hi    = issues.filter(i => i.sev === 'high');
+    const med   = issues.filter(i => i.sev === 'medium');
+    if (crit.length)  critical.push({ loc, issues: crit });
+    else if (hi.length) high.push({ loc, issues: hi });
+    else if (med.length) medium.push({ loc, issues: med });
+  });
+  if (!critical.length && !high.length && !medium.length) { el.innerHTML = ''; return; }
+  el.innerHTML = `<div style="background:var(--mg-lt);border:1px solid var(--mg-mid);border-radius:var(--rl);padding:14px 18px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+      <span style="font-size:13px;font-weight:700;color:var(--mg-dk)">Understaffed locations detected</span>
+      <div style="display:flex;gap:8px">
+        ${critical.length?`<span class="badge err">${critical.length} critical</span>`:''}
+        ${high.length?`<span class="badge warn">${high.length} high</span>`:''}
+        ${medium.length?`<span class="badge neutral">${medium.length} medium</span>`:''}
+        <button class="btn sm" style="background:var(--mg);color:#fff;border:none;font-weight:600" onclick="nav('understaffed')">View all &rarr;</button>
+      </div>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">
+      ${[...critical,...high].slice(0,12).map(({loc})=>`<span class="badge err" style="cursor:pointer" onclick="showLoc('${loc.replace(/'/g,"\'")}');return false">${loc}</span>`).join('')}
+      ${critical.length+high.length>12?`<span class="badge neutral">+${critical.length+high.length-12} more</span>`:''}
+    </div>
+  </div>`;
+}
+
+function populateUsSelect(){
+  populatePageWkSelect('us-wk');
+}
+
+function renderUnderstaffed() {
+  populatePageWkSelect('us-wk');
+  const el = document.getElementById('understaffed-content');
+  if (!el) return;
+  const wk = getPageWk('us-wk');
+  if (!wk) { el.innerHTML = '<div class="empty"><h3>No schedule loaded</h3><p>Upload a schedule to see understaffing analysis.</p></div>'; return; }
+
+  const allLocs = Object.keys(LOC_DATA.locations);
+  const rows = [];
+  allLocs.forEach(loc => {
+    const ls = wk.sched[loc];
+    const issues = getUnderstaffedIssues(loc, ls, wk.label);
+    if (!ls) { rows.push({ loc, issues: [{ day:'All', type:'NO SCHEDULE', detail:'No schedule submitted this week', sev:'critical' }], maxSev:'critical' }); return; }
+    if (issues.length) rows.push({ loc, issues, maxSev: issues.some(i=>i.sev==='critical')?'critical':issues.some(i=>i.sev==='high')?'high':'medium' });
+  });
+
+  rows.sort((a,b) => {
+    const order = { critical:0, high:1, medium:2 };
+    return (order[a.maxSev]||3) - (order[b.maxSev]||3) || a.loc.localeCompare(b.loc);
+  });
+
+  const critical = rows.filter(r=>r.maxSev==='critical').length;
+  const high     = rows.filter(r=>r.maxSev==='high').length;
+  const medium   = rows.filter(r=>r.maxSev==='medium').length;
+  const ok       = allLocs.length - rows.length;
+
+  const sevColor = { critical: 'var(--mg-dk)', high: 'var(--amber)', medium: 'var(--pu-mid)' };
+  const sevBg    = { critical: 'var(--mg-lt)',  high: 'var(--amber-lt)', medium: 'var(--pu-lt)' };
+  const sevBadge = { critical: 'err', high: 'warn', medium: 'neutral' };
+
+  el.innerHTML = `
+    <div class="metrics" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
+      <div class="mc danger"><div class="lbl">Critical</div><div class="val">${critical}</div><div class="sub">No coverage / no schedule</div></div>
+      <div class="mc warning"><div class="lbl">High</div><div class="val">${high}</div><div class="sub">2ME gaps / understaffed days</div></div>
+      <div class="mc"><div class="lbl">Medium</div><div class="val">${medium}</div><div class="sub">Below weekly budget</div></div>
+      <div class="mc success"><div class="lbl">Fully staffed</div><div class="val">${ok}</div><div class="sub">No issues found</div></div>
+    </div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <div class="ch"><h3>Understaffed locations — ${wk.label}</h3></div>
+      ${rows.length ? `<div class="tw"><table>
+        <thead><tr>
+          <th>Location</th><th>Coach</th><th>Manager</th><th>Type</th><th>Severity</th><th>Issues</th><th></th>
+        </tr></thead>
+        <tbody>${rows.map(({loc,issues,maxSev})=>{
+          const info = LOC_DATA.locations[loc];
+          const topIssues = issues.slice(0,3).map(i=>`<div style="font-size:11px;margin-bottom:2px"><span style="color:${sevColor[i.sev]};font-weight:600">${i.type}</span> <span style="color:var(--text2)">${i.day}: ${i.detail}</span></div>`).join('');
+          const more = issues.length > 3 ? `<div style="font-size:11px;color:var(--text3)">+${issues.length-3} more issues</div>` : '';
+          return `<tr style="background:${sevBg[maxSev]}20">
+            <td style="font-weight:600;font-size:13px">${loc}</td>
+            <td style="font-size:12px;color:var(--text2)">${getCoach(loc,wk.label)||'—'}</td>
+            <td style="font-size:12px;color:var(--text2)">${getManager(loc,wk.label)||'—'}</td>
+            <td><span class="badge ${info?.is_2me?'warn':'neutral'}">${info?.is_2me?'2ME':'1ME'}</span></td>
+            <td><span class="badge ${sevBadge[maxSev]}">${maxSev.toUpperCase()}</span></td>
+            <td style="max-width:320px">${topIssues}${more}</td>
+            <td><button class="btn sm" onclick="showLoc('${loc.replace(/'/g,"\'")}')">View &rarr;</button></td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table></div>` : '<div class="empty" style="padding:32px"><h3>No understaffing issues found</h3><p>All locations are fully staffed this week.</p></div>'}
+    </div>`;
+}
+
+
+function populateMissingSelects(){
+  // Driven by ov selects — just sync values
+  const s1=document.getElementById('ov-wk1');
+  const s2=document.getElementById('ov-wk2');
+  const m1=document.getElementById('miss-wk1');
+  const m2=document.getElementById('miss-wk2');
+  if(s1&&m1&&s1.value){m1.innerHTML=`<option value="${s1.value}">${weeks[s1.value]?.label||''}</option>`;m1.value=s1.value;}
+  if(s2&&m2&&s2.value){m2.innerHTML=`<option value="${s2.value}">${weeks[s2.value]?.label||''}</option>`;m2.value=s2.value;}
+}
+
+function downloadMissingXLSX(w1, w2){
+  const allLocs=Object.keys(LOC_DATA.locations);
+  const dataRows=[];
+  if(w1&&w2){
+    const sortedLocs=[...allLocs].sort((a,b)=>{
+      const aScore=((!w1.sched[a]?2:0)+((!w2.sched[a])?2:0));
+      const bScore=((!w1.sched[b]?2:0)+((!w2.sched[b])?2:0));
+      if(bScore!==aScore)return bScore-aScore;
+      return a.localeCompare(b);
+    });
+    sortedLocs.forEach(loc=>{
+      const info=LOC_DATA.locations[loc];
+      const m1=!w1.sched[loc]; const m2=!w2.sched[loc];
+      if(!m1&&!m2)return;
+      dataRows.push({loc,coach:getCoach(loc,w1?w1.label:w2?.label)||'',manager:info?.manager||'',type:info?.is_2me?'2ME':'1ME',
+        wk1:m1?'MISSING':'Submitted',wk2:m2?'MISSING':'Submitted',
+        notes:m1&&m2?'Missing both weeks':m1?'Missing Wk1 only':'Missing Wk2 only',m1,m2});
+    });
+  } else {
+    const w=w1||w2;
+    allLocs.filter(l=>!w.sched[l]).forEach(loc=>{
+      const info=LOC_DATA.locations[loc];
+      dataRows.push({loc,coach:getCoach(loc,w?.label)||'',manager:info?.manager||'',type:info?.is_2me?'2ME':'1ME',
+        wk1:'MISSING',wk2:null,notes:'Missing',m1:true,m2:false});
+    });
+  }
+  if(!dataRows.length){alert('No missing schedules to export.');return;}
+
+  const w1Label=w1?w1.label:'Week 1';
+  const w2Label=w2?w2.label:'Week 2';
+
+  // Build HTML table — Excel opens .xls HTML files and preserves inline styles perfectly
+  const S={
+    tbl:'border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:11pt',
+    hdr:'background:#3D1D61;color:#FFFFFF;font-weight:bold;padding:8px 12px;border:1px solid #CFC0E3;text-align:center',
+    hdrL:'background:#3D1D61;color:#FFFFFF;font-weight:bold;padding:8px 12px;border:1px solid #CFC0E3;text-align:left',
+    missCell:'background:#FFE6EF;color:#B3005A;font-weight:bold;padding:7px 12px;border:1px solid #E4DAEF;text-align:center',
+    okCell:'background:#E0F5EB;color:#007A3D;padding:7px 12px;border:1px solid #E4DAEF;text-align:center',
+    bothRow:'background:#FFD6E7',
+    warnRow:'background:#FFF0E6',
+    cell:'padding:7px 12px;border:1px solid #E4DAEF;color:#1A0F2E',
+    noteCell:'padding:7px 12px;border:1px solid #E4DAEF;color:#5C4E72;font-style:italic'
+  };
+
+  let html=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+<head><meta charset="UTF-8">
+<!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>
+<x:Name>Missing Schedules</x:Name>
+<x:WorksheetOptions><x:FreezePanes/><x:FrozenNoSplit/><x:SplitHorizontal>1</x:SplitHorizontal><x:TopRowBottomPane>1</x:TopRowBottomPane></x:WorksheetOptions>
+</x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
+</head><body>
+<table style="${S.tbl}">
+<thead><tr>
+  <th style="${S.hdrL}">Location</th>
+  <th style="${S.hdrL}">Coach</th>
+  <th style="${S.hdrL}">Manager</th>
+  <th style="${S.hdr}">Type</th>
+  <th style="${S.hdr}">${w1Label}</th>
+  ${w2?`<th style="${S.hdr}">${w2Label}</th>`:''}
+  <th style="${S.hdrL}">Notes</th>
+</tr></thead>
+<tbody>`;
+
+  dataRows.forEach(r=>{
+    const rowStyle=r.m1&&r.m2?S.bothRow:r.m1||r.m2?S.warnRow:'';
+    html+=`<tr style="${rowStyle}">
+      <td style="${S.cell};font-weight:600">${r.loc}</td>
+      <td style="${S.cell}">${r.coach}</td>
+      <td style="${S.cell}">${r.manager}</td>
+      <td style="${S.cell};text-align:center">${r.type}</td>
+      <td style="${r.m1?S.missCell:S.okCell}">${r.wk1}</td>
+      ${w2?`<td style="${r.m2?S.missCell:S.okCell}">${r.wk2}</td>`:''}
+      <td style="${S.noteCell}">${r.notes}</td>
+    </tr>`;
+  });
+
+  html+=`</tbody></table></body></html>`;
+
+  const blob=new Blob([html],{type:'application/vnd.ms-excel;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=`missing_schedules_${new Date().toISOString().slice(0,10)}.xls`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function downloadMissingCSV(w1, w2){ downloadMissingXLSX(w1, w2); }
+
+function renderMissingList(){
+  populateMissingSelects();
+  const sel1=document.getElementById('miss-wk1');
+  const sel2=document.getElementById('miss-wk2');
+  const el=document.getElementById('missing-list');
+  if(!el)return;
+  const allLocs=Object.keys(LOC_DATA.locations);
+
+  const w1key=sel1?.value; const w2key=sel2?.value;
+  const w1=w1key?weeks[w1key]:null;
+  const w2=w2key?weeks[w2key]:null;
+
+  // CSV button helper — only shown when there are missing locations
+  function csvBtn(w1arg,w2arg,count){
+    if(!count)return'';
+    return`<button class="btn sm" onclick="downloadMissingCSV(${w1arg?'weeks[\''+w1arg.key+'\']':'null'},${w2arg?'weeks[\''+w2arg.key+'\']':'null'})" style="background:var(--pu);color:#fff;border-color:var(--pu);gap:4px;display:inline-flex;align-items:center">
+      <svg viewBox="0 0 16 16" fill="currentColor" style="width:13px;height:13px"><path d="M2 2h8l3 3v9H2V2zm7 0v3h3M5 9h6M5 12h4"/><path d="M5 9h6v1H5zm0 3h4v1H5z" opacity=".5"/><path d="M8 6l-3 3h2v3h2V9h2z" fill="white"/></svg>
+      Download Excel (${count} missing)
+    </button>`;
+  }
+
+  // If only one week selected, show simple list for that week
+  if(w1&&!w2){
+    const miss=allLocs.filter(l=>!w1.sched[l]);
+    el.innerHTML=(renderMissingWeekBlock(miss,w1.label,'err','&#9940;')||
+      '<p style="color:var(--green);font-size:13px">&#10003; All locations submitted for this week</p>')+
+      (miss.length?`<div style="margin-top:12px">${csvBtn(w1,null,miss.length)}</div>`:'');
+    return;
+  }
+  if(!w1&&w2){
+    const miss=allLocs.filter(l=>!w2.sched[l]);
+    el.innerHTML=(renderMissingWeekBlock(miss,w2.label,'err','&#9940;')||
+      '<p style="color:var(--green);font-size:13px">&#10003; All locations submitted for this week</p>')+
+      (miss.length?`<div style="margin-top:12px">${csvBtn(null,w2,miss.length)}</div>`:'');
+    return;
+  }
+  if(!w1&&!w2){
+    el.innerHTML='<p style="font-size:13px;color:var(--text2)">Select weeks above to compare</p>';
+    return;
+  }
+
+  // Two weeks selected — full breakdown
+  const miss1=allLocs.filter(l=>!w1.sched[l]);
+  const miss2=allLocs.filter(l=>!w2.sched[l]);
+  const missBoth=allLocs.filter(l=>!w1.sched[l]&&!w2.sched[l]);
+  const missW1only=miss1.filter(l=>w2.sched[l]);
+  const missW2only=miss2.filter(l=>w1.sched[l]);
+  const submittedBoth=allLocs.filter(l=>w1.sched[l]&&w2.sched[l]);
+  const totalMissing=new Set([...miss1,...miss2]).size;
+
+  if(!miss1.length&&!miss2.length){
+    el.innerHTML='<p style="color:var(--green);font-size:13px">&#10003; All locations submitted both weeks!</p>';
+    return;
+  }
+
+  // Stacked table layout — show ALL locations, sorted: both missing first, then one missing, then submitted
+  const sortedLocs=[...allLocs].sort((a,b)=>{
+    const aScore=((!w1.sched[a]?2:0)+((!w2.sched[a])?2:0));
+    const bScore=((!w1.sched[b]?2:0)+((!w2.sched[b])?2:0));
+    if(bScore!==aScore)return bScore-aScore;
+    return a.localeCompare(b);
+  });
+
+  let h=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+    <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--text2)">
+      <span><strong style="color:var(--red)">${missBoth.length}</strong> missing both weeks</span>
+      <span><strong style="color:var(--amber)">${missW1only.length}</strong> missing ${w1.label.split(' ')[1]||'Wk1'} only</span>
+      <span><strong style="color:var(--amber)">${missW2only.length}</strong> missing ${w2.label.split(' ')[1]||'Wk2'} only</span>
+      <span><strong style="color:var(--green)">${submittedBoth.length}</strong> submitted both</span>
+    </div>
+    ${csvBtn(w1,w2,totalMissing)}
+  </div>`;
+
+  h+=`<table style="width:100%;border-collapse:collapse;font-size:13px">
+    <thead>
+      <tr>
+        <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;background:var(--pu-lt)">Location</th>
+        <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;background:var(--pu-lt)">Coach</th>
+        <th style="text-align:left;padding:8px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;background:var(--pu-lt)">Manager</th>
+        <th style="text-align:center;padding:8px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;background:var(--pu-lt)">${w1.label}</th>
+        <th style="text-align:center;padding:8px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;background:var(--pu-lt)">${w2.label}</th>
+      </tr>
+    </thead>
+    <tbody>`;
+
+  sortedLocs.forEach(loc=>{
+    const m1=!w1.sched[loc]; const m2=!w2.sched[loc];
+    if(!m1&&!m2)return; // only show locations with at least one missing week
+    const rowBg=m1&&m2?'var(--mg-lt)':m1||m2?'var(--amber-lt)':'';
+    const info=LOC_DATA.locations[loc];
+    h+=`<tr style="background:${rowBg}">
+      <td style="padding:7px 12px;border-bottom:1px solid var(--border);font-weight:600">${loc}</td>
+      <td style="padding:7px 12px;border-bottom:1px solid var(--border);font-size:11px;color:var(--text2)">${getCoach(loc,w1?w1.label:w2?.label)||'—'}</td>
+      <td style="padding:7px 12px;border-bottom:1px solid var(--border);font-size:11px;color:var(--text2)">${getManager(loc,w1?w1.label:w2?.label)||'—'}</td>
+      <td style="text-align:center;padding:7px 12px;border-bottom:1px solid var(--border)">
+        ${m1?'<span class="badge err">&#9940; Missing</span>':'<span class="badge ok">&#10003; Submitted</span>'}
+      </td>
+      <td style="text-align:center;padding:7px 12px;border-bottom:1px solid var(--border)">
+        ${m2?'<span class="badge err">&#9940; Missing</span>':'<span class="badge ok">&#10003; Submitted</span>'}
+      </td>
+    </tr>`;
+  });
+
+  h+=`</tbody></table>`;
+  el.innerHTML=h;
+}
+
+function renderMissingWeekBlock(locs, label, cls, icon){
+  if(!locs.length)return'';
+  return `<div>
+    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--${cls==='err'?'red':'amber'});margin-bottom:8px">${icon} ${label} — ${locs.length} location${locs.length>1?'s':''} missing</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">${locs.map(m=>`<span class="badge ${cls}">${m}</span>`).join('')}</div>
+  </div>`;
+}
+
+
+function getOvActiveWkKey(){
+  // Returns the key of the "primary" week shown on the overview (ov-wk2 preferred, then ov-wk1, then curWk)
+  const s2=document.getElementById('ov-wk2');
+  const s1=document.getElementById('ov-wk1');
+  if(s2?.value&&weeks[s2.value])return s2.value;
+  if(s1?.value&&weeks[s1.value])return s1.value;
+  return curWk;
+}
+
+function populatePageWkSelect(selId){
+  const sel=document.getElementById(selId);if(!sel)return;
+  const cur=sel.value;
+  const validWks=Object.values(weeks).filter(w=>w.label&&/^Mon\s+\d{1,2}\/\d{1,2}\/\d{4}\s*[–-]\s*Sun\s+\d{1,2}\/\d{1,2}\/\d{4}$/.test(w.label.trim()));
+  sel.innerHTML='<option value="">— Select week —</option>'+
+    validWks.map(w=>`<option value="${w.key}">${w.label}</option>`).join('');
+  if(cur&&weeks[cur])sel.value=cur;
+  else{
+    // Sync to whatever the overview's primary week is
+    const ovKey=getOvActiveWkKey();
+    if(ovKey&&weeks[ovKey])sel.value=ovKey;
+    else if(curWk&&weeks[curWk])sel.value=curWk;
+  }
+}
+
+function getPageWk(selId){
+  const sel=document.getElementById(selId);
+  const key=sel?.value||curWk;
+  return key?weeks[key]:null;
+}
+
+function popLocFilters(){
+  populatePageWkSelect('lc-wk');
+  const w=getPageWk('lc-wk');
+  const wLabel=w?.label||null;
+  const coaches=[...new Set(Object.keys(LOC_DATA.locations).map(l=>getCoach(l,wLabel)).filter(Boolean))].sort();
+  document.getElementById('lc-coach').innerHTML='<option value="">All coaches</option>'+coaches.map(c=>`<option>${c}</option>`).join('');
+}
+function renderLocTable(){
+  const w=getPageWk('lc-wk');if(!w)return;
+  const coach=document.getElementById('lc-coach').value;
+  const status=document.getElementById('lc-status').value;
+  const type=document.getElementById('lc-type').value;
+  const search=document.getElementById('lc-search').value.toLowerCase();
+  const wks=Object.keys(weeks);const hasPrev=wks.length>=2&&wks[wks.length-1]===curWk;
+  const locs=Object.keys(LOC_DATA.locations).filter(loc=>{
+    const info=LOC_DATA.locations[loc];const sc=scoreLoc(loc,w.sched[loc],w.label);const miss=!w.sched[loc];
+    if(coach&&getCoach(loc,w.label)!==coach)return false;
+    if(type&&(info.is_2me?'2ME':'1ME')!==type)return false;
+    if(search&&!loc.toLowerCase().includes(search))return false;
+    if(status==='missing'&&!miss)return false;
+    if(status==='ok'&&(miss||sc.score<80))return false;
+    if(status==='warn'&&(miss||sc.score<60||sc.score>=80))return false;
+    if(status==='err'&&(miss||sc.score>=60))return false;
+    return true;
+  });
+  const weekHolsLoc=getWeekHolidays(w.label);
+  document.getElementById('loc-tbody').innerHTML=locs.map(loc=>{
+    const info=LOC_DATA.locations[loc];const sc=scoreLoc(loc,w.sched[loc],w.label);const miss=!w.sched[loc];const cls=miss?'err':sCls(sc.score);
+    const top=Object.keys(sc.types)[0]||'None';
+    let trend='<span class="badge neutral">—</span>';
+    if(hasPrev){const pw=weeks[wks[wks.length-2]];const psc=scoreLoc(loc,pw.sched[loc],pw.label);trend=tBadge(sc.score-psc.score);}
+    const holDay=Object.entries(weekHolsLoc).find(([day,h])=>isLocClosedForHoliday(loc,h));
+    const holBadge=holDay?`<span class="badge" style="background:#F6C90E;color:#7C5C00;margin-left:4px">🎄 ${holDay[1].name}</span>`:'';
+    return`<tr><td><a href="#" onclick="showLoc('${loc.replace(/'/g,"\\'")}');return false" style="font-weight:500;color:var(--text);text-decoration:none">${loc}</a>${holBadge}</td><td style="color:var(--text2);font-size:12px">${getCoach(loc,w.label)||'—'}</td><td style="color:var(--text2);font-size:12px">${info.manager}</td><td><span class="badge ${info.is_2me?'warn':'neutral'}">${info.is_2me?'2ME':'1ME'}</span></td><td><span class="badge ${cls}">${miss?'No schedule':sc.score+'%'}</span></td><td style="font-family:'DM Mono',monospace;font-size:12px">${sc.violations}</td><td>${trend}</td><td style="font-size:11px;color:var(--text2)">${top}</td><td><button class="btn sm" onclick="showLoc('${loc.replace(/'/g,"\\'")}')">View &#8594;</button></td></tr>`;
+  }).join('');
+}
+
+function getActiveWk(){
+  // Try to resolve the week from whichever tab's dropdown is currently active
+  const pageSelMap={
+    'locations':'lc-wk','managers':'mgr-wk','coaches':'cch-wk',
+    'conflicts':'conf-wk','understaffed':'us-wk','tracker':'tr-wk2',
+    'monthly':'mo-wk','overview':'ov-wk2'
+  };
+  const activePage=document.querySelector('.page.active');
+  if(activePage){
+    const pid=activePage.id.replace('page-','');
+    const selId=pageSelMap[pid];
+    if(selId){
+      const sel=document.getElementById(selId);
+      if(sel?.value&&weeks[sel.value])return weeks[sel.value];
+    }
+  }
+  return curWk?weeks[curWk]:null;
+}
+
+function showLoc(locName){
+  const activePage=document.querySelector('.page.active');
+  if(activePage)locDetailFrom=activePage.id.replace('page-','');
+  const w=getActiveWk();if(!w)return;
+  const info=LOC_DATA.locations[locName];const ranks=LOC_DATA.ranks[locName]||{};
+  const ls=w.sched[locName];const sc=scoreLoc(locName,ls,w.label);
+  const cols=7;
+  let html=`<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;gap:16px;flex-wrap:wrap">
+    <div><h2 style="font-size:22px;font-weight:600;letter-spacing:-.4px">${locName}</h2>
+    <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">
+      <span class="badge ${info.is_2me?'warn':'neutral'}">${info.is_2me?'2ME':'1ME'}</span>
+      <span class="badge neutral">${info.type}</span>
+      <span class="badge neutral">Budget: ${info.budget}h</span>
+      <span class="badge ${sCls(sc.score)}">${sc.score}% compliance</span>
+    </div></div>
+    <div style="text-align:right;font-size:12px;color:var(--text2)">
+      <div style="font-weight:500;color:var(--text)">${getManager(locName,w.label)}</div><div>${info.phone}</div><div>Coach: ${getCoach(locName,w.label)||'—'}</div>
+    </div></div>`;
+  // Holiday awareness for this week
+  const weekHols=getWeekHolidays(w.label);
+  const locHolDays=DAYS.filter(day=>weekHols[day]&&isLocClosedForHoliday(locName,weekHols[day]));
+  if(locHolDays.length){
+    const holNames=[...new Set(locHolDays.map(d=>weekHols[d].name))].join(', ');
+    html+=`<div style="background:#FFF8E7;border:1px solid #F6C90E;border-radius:var(--r);padding:10px 16px;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span style="font-size:18px">🎄</span>
+      <span style="font-size:13px;font-weight:600;color:#7C5C00">Holiday closure: ${holNames}</span>
+      <span style="font-size:12px;color:#7C5C00">— ${locHolDays.join(', ')} exempt from compliance scoring</span>
+    </div>`;
+  }
+  if(!ls){
+    const fullyHolClosed=DAYS.every(day=>!info.hours[day]||(weekHols[day]&&isLocClosedForHoliday(locName,weekHols[day])));
+    if(locHolDays.length&&!fullyHolClosed){
+      html+=`<div style="background:var(--amber-lt);border:1px solid #fcd34d;border-radius:var(--rl);padding:32px;text-align:center"><h3 style="color:var(--amber);font-size:16px;margin-bottom:6px">No schedule submitted</h3><p style="font-size:13px;color:var(--amber)">Partially exempt — ${locHolDays.join(', ')} closed for holiday. Non-holiday days still require a schedule.</p></div>`;
+    } else {
+      html+=`<div style="background:var(--red-lt);border:1px solid #fca5a5;border-radius:var(--rl);padding:32px;text-align:center"><h3 style="color:var(--red);font-size:16px;margin-bottom:6px">No schedule submitted</h3><p style="font-size:13px;color:var(--red)">This location has not submitted a schedule for this week.</p></div>`;
+    }
+  } else {
+    const empSet=new Set();DAYS.forEach(d=>(ls.days[d]||[]).forEach(s=>empSet.add(s.emp)));const emps=[...empSet].sort();
+    if(sc.violations>0){
+      html+=`<div style="background:var(--red-lt);border:1px solid #fca5a5;border-radius:var(--r);padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span style="font-size:13px;font-weight:600;color:var(--red)">${sc.violations} violation${sc.violations>1?'s':''} found:</span>${Object.entries(sc.types).map(([t,n])=>`<span class="badge err">${t}: ${n}</span>`).join(' ')}</div>`;
+    }
+    const gcols=`160px repeat(${cols},1fr)`;
+    html+=`<div class="sg" style="grid-template-columns:${gcols};margin-bottom:20px">
+      <div class="sc hdr">Employee</div>
+      ${DAYS.map((day,di)=>{
+        const r=ranks[day]||0;
+        const hol=weekHols[day]&&isLocClosedForHoliday(locName,weekHols[day])?weekHols[day]:null;
+        return`<div class="sc hdr" style="${hol?'background:#7C5C00;':''}">
+          ${DS[di]}<span class="rc r${r}">R${r}</span>${hol?`<div style="font-size:9px;opacity:.8;margin-top:2px">🎄 Holiday</div>`:''}
+        </div>`;
+      }).join('')}
+      <div class="sc" style="background:var(--surface2);font-size:11px;color:var(--text2);font-weight:500">Hours</div>
+      ${DAYS.map(day=>{
+        const hol=weekHols[day]&&isLocClosedForHoliday(locName,weekHols[day])?weekHols[day]:null;
+        const h=info.hours[day];
+        if(hol)return`<div class="sc" style="background:#FFF8E7;font-size:10px;color:#7C5C00;font-weight:600">Closed<br>${hol.name}</div>`;
+        return`<div class="sc" style="background:var(--surface2);font-size:11px;color:var(--text2)">${h?h.open+'–'+h.close:'Closed'}</div>`;
+      }).join('')}
+      ${emps.map(emp=>{
+        let et=0;
+        const cells=DAYS.map(day=>{
+          const hol=weekHols[day]&&isLocClosedForHoliday(locName,weekHols[day])?weekHols[day]:null;
+          if(hol)return`<div class="sc shift" style="background:#FFF8E7;color:#7C5C00;font-size:11px;text-align:center;padding:6px 4px">🎄<br>Closed</div>`;
+          const shifts=(ls.days[day]||[]).filter(s=>s.emp===emp);
+          if(!shifts.length)return`<div class="sc shift off">OFF</div>`;
+          const sh=shifts[0];et+=sh.hours;
+          const viols=getViols(sh,day,locName,ls.days[day]||[]);
+          const hasErr=viols.some(v=>v.sev==='err');const hasWarn=viols.some(v=>v.sev==='warn');
+          const cls=hasErr?'err':hasWarn?'warn':'ok';
+          const vt=viols.map(v=>`<div class="sv">&#9888; ${v.type}: ${v.msg}</div>`).join('');
+          return`<div class="sc shift ${cls}"><div class="st">${fT(sh.start)}–${fT(sh.end)}</div><div class="sh">${sh.hours.toFixed(1)}h</div>${vt}</div>`;
+        }).join('');
+        return`<div class="sc emp-col">${emp}<div style="font-size:10px;color:var(--text2);margin-top:2px">${et.toFixed(1)}h/wk</div></div>${cells}`;
+      }).join('')}
+    </div>`;
+    let wt=0;emps.forEach(e=>DAYS.forEach(d=>{(ls.days[d]||[]).filter(s=>s.emp===e).forEach(s=>wt+=s.hours);}));
+    const v=wt-info.budget;
+    html+=`<div style="display:flex;gap:10px;flex-wrap:wrap">
+      <div class="mc" style="flex:1;min-width:110px"><div class="lbl">Scheduled</div><div class="val" style="font-size:20px">${wt.toFixed(1)}h</div></div>
+      <div class="mc" style="flex:1;min-width:110px"><div class="lbl">Budget</div><div class="val" style="font-size:20px">${info.budget}h</div></div>
+      <div class="mc ${v>10?'danger':v>0?'warning':'success'}" style="flex:1;min-width:110px"><div class="lbl">Variance</div><div class="val" style="font-size:20px">${(v>=0?'+':'')+v.toFixed(1)}h</div></div>
+      <div class="mc ${sCls(sc.score)==='ok'?'success':sCls(sc.score)==='warn'?'warning':'danger'}" style="flex:1;min-width:110px"><div class="lbl">Compliance</div><div class="val" style="font-size:20px">${sc.score}%</div></div>
+    </div>`;
+  }
+  document.getElementById('loc-detail').innerHTML=html;nav('loc-detail');
+}
+
+function popMgr(){
+  populatePageWkSelect('mgr-wk');
+  const mgrs=[...new Set(Object.keys(LOC_DATA.locations).map(l=>getManager(l)).filter(Boolean))].sort();
+  document.getElementById('mgr-sel').innerHTML='<option value="">All managers</option>'+mgrs.map(m=>`<option>${m}</option>`).join('');
+}
+function renderMgr(){
+  const w=getPageWk('mgr-wk');if(!w)return;
+  const filter=document.getElementById('mgr-sel').value;
+  const mgrs={};
+  Object.entries(LOC_DATA.locations).forEach(([loc,info])=>{
+    const mgr=getManager(loc,w.label);if(!mgrs[mgr])mgrs[mgr]={locs:[],coach:getCoach(loc,w.label)};
+    mgrs[mgr].locs.push(loc);
+  });
+  const toR=filter?{[filter]:mgrs[filter]}:mgrs;
+  document.getElementById('mgr-content').innerHTML=Object.entries(toR).filter(([,d])=>d).sort().map(([mgr,d])=>{
+    const av=Math.round(d.locs.reduce((s,l)=>s+scoreLoc(l,w.sched[l],w.label).score,0)/d.locs.length);
+    const tv=d.locs.reduce((s,l)=>s+scoreLoc(l,w.sched[l],w.label).violations,0);
+    return`<div class="card" style="margin-bottom:16px">
+      <div class="ch"><div><h3>${mgr}</h3><div style="font-size:12px;color:var(--text2);margin-top:2px">Coach: ${getCoach(d.locs[0],w.label)||'—'} &middot; ${d.locs.length} location${d.locs.length>1?'s':''}</div></div>
+      <div style="display:flex;gap:8px"><span class="badge ${sCls(av)}">${av}% avg</span><span class="badge ${tv>5?'err':tv>2?'warn':'ok'}">${tv} violations</span></div></div>
+      <div class="cb">${d.locs.map(loc=>{
+        const sc=scoreLoc(loc,w.sched[loc],w.label);const miss=!w.sched[loc];const top=Object.keys(sc.types)[0]||'None';
+        return`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);gap:10px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:8px"><a href="#" onclick="showLoc('${loc.replace(/'/g,"\\'")}');return false" style="font-weight:500;font-size:13px;color:var(--text);text-decoration:none">${loc}</a><span class="badge ${LOC_DATA.locations[loc].is_2me?'warn':'neutral'}" style="font-size:10px">${LOC_DATA.locations[loc].is_2me?'2ME':'1ME'}</span></div>
+          <div style="display:flex;align-items:center;gap:8px"><span class="badge ${miss?'err':sCls(sc.score)}">${miss?'No schedule':sc.score+'%'}</span>${sc.violations?`<span style="font-size:12px;color:var(--red)">${sc.violations} violations &middot; ${top}</span>`:'<span style="font-size:12px;color:var(--green)">No violations</span>'}<button class="btn sm" onclick="showLoc('${loc.replace(/'/g,"\\'")}')">View &#8594;</button></div>
+        </div>`;
+      }).join('')}</div></div>`;
+  }).join('');
+}
+
+function popCoach(){
+  populatePageWkSelect('cch-wk');
+  const w=getPageWk('cch-wk');
+  const wLabel=w?.label||null;
+  const coaches=[...new Set(Object.keys(LOC_DATA.locations).map(l=>getCoach(l,wLabel)).filter(Boolean))].sort();
+  document.getElementById('cch-sel').innerHTML='<option value="">All coaches</option>'+coaches.map(c=>`<option>${c}</option>`).join('');
+}
+function renderCoach(){
+  const w=getPageWk('cch-wk');if(!w)return;
+  const filter=document.getElementById('cch-sel').value;
+  const coaches={};
+  Object.entries(LOC_DATA.locations).forEach(([loc,info])=>{
+    const c=getCoach(loc,w.label)||'Unassigned';if(!coaches[c])coaches[c]=[];coaches[c].push(loc);
+  });
+  const toR=filter?{[filter]:coaches[filter]}:coaches;
+  document.getElementById('coach-content').innerHTML=Object.entries(toR).filter(([,ls])=>ls).sort().map(([coach,locs])=>{
+    const av=Math.round(locs.reduce((s,l)=>s+scoreLoc(l,w.sched[l],w.label).score,0)/locs.length);
+    const tv=locs.reduce((s,l)=>s+scoreLoc(l,w.sched[l],w.label).violations,0);
+    const miss=locs.filter(l=>!w.sched[l]);
+    return`<div class="card" style="margin-bottom:16px">
+      <div class="ch"><h3>${coach}</h3><div style="display:flex;gap:8px"><span class="badge ${sCls(av)}">${av}% avg</span>${miss.length?`<span class="badge err">${miss.length} missing</span>`:''}<span class="badge ${tv>10?'err':tv>5?'warn':'ok'}">${tv} violations</span></div></div>
+      <div class="tw"><table><thead><tr><th>Location</th><th>Manager</th><th>Type</th><th>Compliance</th><th>Violations</th><th>Top issue</th><th></th></tr></thead>
+      <tbody>${locs.map(loc=>{
+        const info=LOC_DATA.locations[loc];const sc=scoreLoc(loc,w.sched[loc],w.label);const m=!w.sched[loc];const top=Object.keys(sc.types)[0]||'—';
+        return`<tr><td style="font-weight:500">${loc}</td><td style="font-size:12px;color:var(--text2)">${info.manager}</td><td><span class="badge ${info.is_2me?'warn':'neutral'}" style="font-size:10px">${info.is_2me?'2ME':'1ME'}</span></td><td><span class="badge ${m?'err':sCls(sc.score)}">${m?'No schedule':sc.score+'%'}</span></td><td style="font-family:'DM Mono',monospace;font-size:12px">${sc.violations}</td><td style="font-size:11px;color:var(--text2)">${top}</td><td><button class="btn sm" onclick="showLoc('${loc.replace(/'/g,"\\'")}')">View &#8594;</button></td></tr>`;
+      }).join('')}</tbody></table></div></div>`;
+  }).join('');
+}
+
+
+function renderMonthly(){
+  populatePageWkSelect('mo-wk');
+  const el=document.getElementById('monthly-content');
+  if(!el)return;
+  const wkArr=Object.values(weeks);
+  if(!wkArr.length){
+    el.innerHTML='<div class="empty"><h3>No schedules loaded</h3><p>Upload at least one week to see the monthly overview.</p></div>';
+    return;
+  }
+
+  // Determine end week from dropdown, default to most recent
+  const sel=document.getElementById('mo-wk');
+  const endKey=sel?.value||curWk;
+  const endIdx=wkArr.findIndex(w=>w.key===endKey);
+  const end=endIdx>=0?endIdx:wkArr.length-1;
+  const start=Math.max(0,end-3);
+
+  // Group weeks — up to 4 shown (one month worth), ending on selected week
+  const display=wkArr.slice(start,end+1);
+
+  // Per-location stats across all displayed weeks
+  const allLocs=Object.keys(LOC_DATA.locations);
+
+  // Build HTML
+  let h='';
+
+  // ── Summary metric cards across all weeks ────────────────────────────────
+  h+=`<div style="display:grid;grid-template-columns:repeat(${display.length},1fr);gap:10px;margin-bottom:20px">`;
+  display.forEach(w=>{
+    const missing=allLocs.filter(l=>!w.sched[l]).length;
+    const totalV=allLocs.reduce((s,l)=>s+scoreLoc(l,w.sched[l],w.label).violations,0);
+    const avg=Math.round(allLocs.reduce((s,l)=>s+scoreLoc(l,w.sched[l],w.label).score,0)/allLocs.length);
+    const avgBg=avg>=80?'var(--green)':avg>=60?'var(--amber)':'var(--mg-dk)';
+    h+=`<div class="mc" style="border-top-color:${avgBg}">
+      <div class="lbl" style="font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${w.label}</div>
+      <div class="val" style="font-size:20px;color:${avgBg}">${avg}%</div>
+      <div class="sub">${totalV} violations &middot; ${missing} missing</div>
+    </div>`;
+  });
+  h+='</div>';
+
+  // ── Compliance heatmap: locations × weeks ────────────────────────────────
+  h+=`<div class="card" style="margin-bottom:20px;padding:0;overflow:hidden">
+    <div class="ch"><h3>Compliance heatmap — location × week</h3></div>
+    <div style="overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr>
+        <th style="text-align:left;padding:8px 12px;position:sticky;left:0;background:var(--pu-lt);z-index:1;min-width:180px">Location</th>
+        <th style="text-align:left;padding:8px 12px;background:var(--pu-lt);font-size:11px">Coach</th>
+        ${display.map(w=>`<th style="text-align:center;padding:8px 12px;background:var(--pu-lt);font-size:11px;white-space:nowrap">${w.label.replace(' – ',' –<br>')}</th>`).join('')}
+        <th style="text-align:center;padding:8px 12px;background:var(--pu-lt);font-size:11px">Avg</th>
+      </tr></thead>
+      <tbody>
+        ${allLocs.map(loc=>{
+          const info=LOC_DATA.locations[loc];
+          const scores=display.map(w=>scoreLoc(loc,w.sched[loc],w.label));
+          const avg=Math.round(scores.reduce((s,sc)=>s+sc.score,0)/scores.length);
+          const avgBg=avg>=80?'#007A3D':avg>=60?'#C45000':'#B3005A';
+          return `<tr>
+            <td style="padding:7px 12px;border-bottom:1px solid var(--border);font-weight:500;position:sticky;left:0;background:var(--surface);z-index:1">${loc}</td>
+            <td style="padding:7px 12px;border-bottom:1px solid var(--border);font-size:11px;color:var(--text2)">${getCoach(loc,display[display.length-1]?.label)||'—'}</td>
+            ${scores.map((sc,i)=>{
+              const w=display[i];
+              const missing=!w.sched[loc];
+              const bg=missing?'#FFE6F2':sc.score>=80?'#E0F5EB':sc.score>=60?'#FFF0E6':'#FFE6EF';
+              const fg=missing?'#B3005A':sc.score>=80?'#007A3D':sc.score>=60?'#C45000':'#B3005A';
+              const txt=missing?'—':sc.score+'%';
+              return `<td style="text-align:center;padding:7px 12px;border-bottom:1px solid var(--border);background:${bg};color:${fg};font-weight:600;font-size:12px">${txt}</td>`;
+            }).join('')}
+            <td style="text-align:center;padding:7px 12px;border-bottom:1px solid var(--border);background:${avg>=80?'#007A3D':avg>=60?'#C45000':'#B3005A'};color:#fff;font-weight:700;font-size:12px">${avg}%</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+    </div>
+  </div>`;
+
+  // ── Violations trend per coach ────────────────────────────────────────────
+  const coaches=[...new Set(Object.values(LOC_DATA.locations).map(l=>l.coach).filter(Boolean))].sort();
+  h+=`<div class="card" style="margin-bottom:20px;padding:0;overflow:hidden">
+    <div class="ch"><h3>Violations by coach — weekly trend</h3></div>
+    <div class="cb">
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr>
+        <th style="text-align:left;padding:6px 10px;background:var(--pu-lt)">Coach</th>
+        ${display.map(w=>`<th style="text-align:center;padding:6px 10px;background:var(--pu-lt);font-size:11px;white-space:nowrap">${w.label.split(' ')[1]||w.label}</th>`).join('')}
+        <th style="text-align:center;padding:6px 10px;background:var(--pu-lt)">Trend</th>
+      </tr></thead>
+      <tbody>
+      ${coaches.map(coach=>{
+        const locs=allLocs.filter(l=>LOC_DATA.locations[l].coach===coach);
+        const weekViols=display.map(w=>locs.reduce((s,l)=>s+scoreLoc(l,w.sched[l],w.label).violations,0));
+        const trend=weekViols.length>=2?weekViols[weekViols.length-1]-weekViols[weekViols.length-2]:0;
+        const trendTxt=trend<0?`<span style="color:#007A3D;font-weight:700">&#9660; ${Math.abs(trend)}</span>`:trend>0?`<span style="color:#B3005A;font-weight:700">&#9650; ${trend}</span>`:`<span style="color:var(--text3)">&#61;</span>`;
+        return `<tr>
+          <td style="padding:7px 10px;border-bottom:1px solid var(--border);font-weight:600">${coach}</td>
+          ${weekViols.map(v=>{
+            const bg=v===0?'#E0F5EB':v<=5?'#FFF0E6':v<=15?'#FFE6EF':'#FFB3D4';
+            const fg=v===0?'#007A3D':v<=5?'#C45000':'#B3005A';
+            return `<td style="text-align:center;padding:7px 10px;border-bottom:1px solid var(--border);background:${bg};color:${fg};font-weight:600">${v}</td>`;
+          }).join('')}
+          <td style="text-align:center;padding:7px 10px;border-bottom:1px solid var(--border)">${trendTxt}</td>
+        </tr>`;
+      }).join('')}
+      </tbody>
+    </table>
+    </div>
+  </div>`;
+
+  // ── Missing schedule tracker across weeks ────────────────────────────────
+  const alwaysMissing=allLocs.filter(l=>display.every(w=>!w.sched[l]));
+  const sometimesMissing=allLocs.filter(l=>display.some(w=>!w.sched[l])&&!display.every(w=>!w.sched[l]));
+  if(alwaysMissing.length||sometimesMissing.length){
+    h+=`<div class="card" style="padding:0;overflow:hidden">
+      <div class="ch"><h3>Schedule submission pattern</h3></div>
+      <div class="cb">`;
+    if(alwaysMissing.length) h+=`<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--mg-dk);margin-bottom:8px">Never submitted (all ${display.length} weeks)</div><div style="display:flex;flex-wrap:wrap;gap:6px">${alwaysMissing.map(l=>`<span class="badge err">${l}</span>`).join('')}</div></div>`;
+    if(sometimesMissing.length) h+=`<div><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--amber);margin-bottom:8px">Inconsistent submission</div><div style="display:flex;flex-wrap:wrap;gap:6px">${sometimesMissing.map(l=>`<span class="badge warn">${l}</span>`).join('')}</div></div>`;
+    h+='</div></div>';
+  }
+
+  el.innerHTML=h;
+}
+
+function renderConflicts(){
+  populatePageWkSelect('conf-wk');
+  const w=getPageWk('conf-wk');
+  if(!w){
+    document.getElementById('conflicts-content').innerHTML=
+      '<div class="empty"><h3>Select a week above</h3><p>Choose a week from the dropdown to see employee conflicts.</p></div>';
+    return;
+  }
+  // Always recalculate fresh from sched data
+  const c=findConflicts(w.sched);
+  document.getElementById('conflicts-content').innerHTML=`
+    <div class="metrics" style="grid-template-columns:repeat(3,1fr);margin-bottom:20px">
+      <div class="mc ${c.filter(x=>x.overlap).length?'danger':''}"><div class="lbl">True overlaps</div><div class="val">${c.filter(x=>x.overlap).length}</div><div class="sub">impossible to work both</div></div>
+      <div class="mc ${c.filter(x=>!x.overlap).length?'warning':''}"><div class="lbl">Back-to-back</div><div class="val">${c.filter(x=>!x.overlap).length}</div><div class="sub">tight but possible</div></div>
+      <div class="mc"><div class="lbl">Employees affected</div><div class="val">${new Set(c.map(x=>x.empId)).size}</div><div class="sub">at 2+ locations</div></div>
+    </div>
+    <div class="card"><div class="ch"><h3>All conflicts — ${w.label}</h3></div><div class="cb">
+      ${c.length?c.map(cf=>`<div class="cc ${cf.overlap?'overlap':'tight'}"><div class="ce">${cf.emp} &mdash; ${cf.day} <span class="badge ${cf.overlap?'err':'warn'}">${cf.overlap?'OVERLAP':'Back-to-back'}</span></div><div class="cd"><strong>${cf.loc1}:</strong> ${fT(cf.s1)} &ndash; ${fT(cf.e1)}<br><strong>${cf.loc2}:</strong> ${fT(cf.s2)} &ndash; ${fT(cf.e2)}</div></div>`).join(''):'<div class="empty"><h3>No conflicts found</h3><p>No employees scheduled at multiple locations on the same day.</p></div>'}
+    </div></div>`;
+}
+
+function populateTrSelects(){
+  const s1=document.getElementById('tr-wk1');
+  const s2=document.getElementById('tr-wk2');
+  if(!s1||!s2)return;
+  const validWks=Object.values(weeks).filter(w=>w.label&&/^Mon\s+\d{1,2}\/\d{1,2}\/\d{4}\s*[–-]\s*Sun\s+\d{1,2}\/\d{1,2}\/\d{4}$/.test(w.label.trim()));
+  const opts='<option value="">— Select week —</option>'+validWks.map(w=>`<option value="${w.key}">${w.label}</option>`).join('');
+  const cur1=s1.value,cur2=s2.value;
+  s1.innerHTML=opts; s2.innerHTML=opts;
+  // Sync from overview week selects if no existing selection
+  const ov1=document.getElementById('ov-wk1');
+  const ov2=document.getElementById('ov-wk2');
+  if(cur1&&weeks[cur1])s1.value=cur1;
+  else if(ov1?.value&&weeks[ov1.value])s1.value=ov1.value;
+  else if(validWks.length>=2)s1.value=validWks[validWks.length-2].key;
+  else if(validWks.length)s1.value=validWks[0].key;
+  if(cur2&&weeks[cur2])s2.value=cur2;
+  else if(ov2?.value&&weeks[ov2.value])s2.value=ov2.value;
+  else if(validWks.length>=1)s2.value=validWks[validWks.length-1].key;
+}
+
+function renderTracker(){
+  populateTrSelects();
+  const s1=document.getElementById('tr-wk1');
+  const s2=document.getElementById('tr-wk2');
+  const wk1Key=s1?.value; const wk2Key=s2?.value;
+  if(!wk1Key||!wk2Key||!weeks[wk1Key]||!weeks[wk2Key]){
+    document.getElementById('tr-tbody').innerHTML='<tr><td colspan="9" style="text-align:center;padding:32px;color:var(--text2)">Select two weeks above to compare trends.</td></tr>';
+    document.getElementById('repeat-card').style.display='none';
+    document.getElementById('tr-metrics').innerHTML='';return;
+  }
+  document.getElementById('repeat-card').style.display='';
+  const w1=weeks[wk1Key],w2=weeks[wk2Key];
+  document.getElementById('wk1-col').textContent=w1.label;
+  document.getElementById('wk2-col').textContent=w2.label;
+  let imp=0,wrs=0,reps=0;
+  const locs=Object.keys(LOC_DATA.locations);
+  const rows=locs.map(loc=>{
+    const sc1=scoreLoc(loc,w1.sched[loc],w1.label),sc2=scoreLoc(loc,w2.sched[loc],w2.label);
+    const delta=sc2.score-sc1.score;
+    if(delta>5)imp++;else if(delta<-5)wrs++;
+    const rep=Object.keys(sc2.types).filter(t=>sc1.types[t]);
+    if(rep.length)reps++;
+    return{loc,sc1,sc2,delta,rep};
+  });
+  document.getElementById('tr-metrics').innerHTML=`
+    <div class="mc success"><div class="lbl">Improving</div><div class="val">${imp}</div><div class="sub">score up 5+ pts</div></div>
+    <div class="mc ${wrs?'danger':''}"><div class="lbl">Worsening</div><div class="val">${wrs}</div><div class="sub">score down 5+ pts</div></div>
+    <div class="mc ${reps?'danger':''}"><div class="lbl">Repeat violators</div><div class="val">${reps}</div><div class="sub">same issue both weeks</div></div>`;
+  document.getElementById('tr-tbody').innerHTML=rows.map(({loc,sc1,sc2,delta,rep})=>`
+    <tr><td><a href="#" onclick="showLoc('${loc.replace(/'/g,"\\'")}');return false" style="font-weight:500;color:var(--text);text-decoration:none">${loc}</a></td>
+    <td style="font-size:12px;color:var(--text2)">${getCoach(loc,w2.label)||'—'}</td>
+    <td style="font-size:12px;color:var(--text2)">${getManager(loc,w2.label)}</td>
+    <td><span class="badge ${sCls(sc1.score)}">${sc1.score}%</span></td>
+    <td><span class="badge ${sCls(sc2.score)}">${sc2.score}%</span></td>
+    <td>${tBadge(delta)}</td>
+    <td style="font-family:'DM Mono',monospace;font-size:12px">${sc1.violations}</td>
+    <td style="font-family:'DM Mono',monospace;font-size:12px">${sc2.violations}</td>
+    <td style="font-size:11px">${rep.length?`<span class="badge err">${rep.join(', ')}</span>`:'<span style="color:var(--text3)">—</span>'}</td></tr>`).join('');
+  const rl=rows.filter(r=>r.rep.length);
+  document.getElementById('repeat-list').innerHTML=rl.length?rl.map(({loc,rep})=>`
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);gap:8px">
+      <div><span style="font-weight:500;font-size:13px">${loc}</span><span style="font-size:12px;color:var(--text2);margin-left:8px">${getManager(loc,w2.label)}</span></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">${rep.map(r=>`<span class="badge err">${r}</span>`).join('')}</div>
+    </div>`).join(''):'<p style="color:var(--green);font-size:13px">No repeat violations!</p>';
+}
+
+// ── Personnel Directory ───────────────────────────────────────────────────────
+// Overrides stored in localStorage keyed by location name
+// Structure: { 'LOC-NAME': { coach: '...', manager: '...' }, ... }
+// ── Personnel Directory with full accountability change log ──────────────────
+// Storage structure per location:
+// personnelOverrides['LOC'] = {
+//   coach:   { current: 'Name', history: [{ from, to, date, effectiveDate, note }] },
+//   manager: { current: 'Name', history: [{ from, to, date, effectiveDate, note }] }
+// }
+let personnelOverrides = {};
+let personnelEditing = null;
+
+function loadPersonnelOverrides(){
+  try {
+    const saved = localStorage.getItem('sp_personnel_v2');
+    if(saved) personnelOverrides = JSON.parse(saved);
+    // Migrate from old format (v1)
+    const old = localStorage.getItem('sp_personnel');
+    if(old && !saved){
+      const v1 = JSON.parse(old);
+      Object.entries(v1).forEach(([loc, data]) => {
+        personnelOverrides[loc] = {};
+        if(data.coach !== undefined){
+          const orig = LOC_DATA.locations[loc]?.coach || '—';
+          personnelOverrides[loc].coach = { current: data.coach, history: [{ from: orig, to: data.coach, date: new Date().toISOString(), effectiveDate: '01/01/2026', note: 'Migrated from previous record' }] };
+        }
+        if(data.manager !== undefined){
+          const orig = LOC_DATA.locations[loc]?.manager || '—';
+          personnelOverrides[loc].manager = { current: data.manager, history: [{ from: orig, to: data.manager, date: new Date().toISOString(), effectiveDate: '01/01/2026', note: 'Migrated from previous record' }] };
+        }
+      });
+      savePersistPersonnel();
+    }
+  } catch(e) { personnelOverrides = {}; }
+}
+
+function savePersistPersonnel(){
+  try {
+    localStorage.setItem('sp_personnel_v2', JSON.stringify(personnelOverrides));
+    // Flash green confirmation banner for 2 seconds
+    const banner = document.getElementById('pers-unsaved');
+    if(banner){
+      banner.style.display = 'flex';
+      clearTimeout(banner._hideTimer);
+      banner._hideTimer = setTimeout(() => { banner.style.display = 'none'; }, 2000);
+    }
+  } catch(e) { showToast('Could not save — storage full?', true); }
+}
+
+function resetPersonnel(){
+  if(!confirm('Reset ALL personnel to original defaults? This will permanently delete the entire change log and cannot be undone.')) return;
+  personnelOverrides = {};
+  localStorage.removeItem('sp_personnel_v2');
+  localStorage.removeItem('sp_personnel');
+  renderPersonnel();
+  showToast('Personnel reset to defaults');
+}
+
+// ── Date-aware getCoach: returns who was coach during a given week ─────────────
+function getCoach(locName, weekLabel){
+  const rawCoach = LOC_DATA.locations[locName]?.coach || '—';
+  const rec = personnelOverrides[locName]?.coach;
+
+  // Determine week's Monday date
+  let weekDate = null;
+  if(weekLabel){
+    const m = weekLabel.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if(m) weekDate = new Date(+m[3], +m[1]-1, +m[2]);
+  }
+
+  // If we have history, find who was coach at the time of that week
+  if(rec && rec.history && rec.history.length && weekDate){
+    // Sort history oldest→newest
+    const sorted = [...rec.history].sort((a,b) => new Date(a.date) - new Date(b.date));
+    let coachAtTime = rawCoach;
+    for(const entry of sorted){
+      const effParts = (entry.effectiveDate||entry.date).split('/');
+      let effDate;
+      if(effParts.length === 3) effDate = new Date(+effParts[2], +effParts[0]-1, +effParts[1]);
+      else effDate = new Date(entry.date);
+      if(effDate <= weekDate) coachAtTime = entry.to;
+    }
+    return coachAtTime || 'TBD';
+  }
+
+  // No history — use current override or fall through to COACH_OVERRIDES
+  if(rec) return rec.current || 'TBD';
+
+  // COACH_OVERRIDES (date-based config block)
+  if(!COACH_OVERRIDES.length) return rawCoach;
+  let checkDate = weekDate || new Date();
+  let result = rawCoach;
+  COACH_OVERRIDES
+    .filter(o => {
+      const [mo,dy,yr] = o.effectiveDate.split('/').map(Number);
+      const locMatch = !o.locations || o.locations.includes(locName);
+      const coachMatch = rawCoach === o.replaces;
+      return new Date(yr, mo-1, dy) <= checkDate && locMatch && coachMatch;
+    })
+    .forEach(o => { result = o.coach; });
+  return result;
+}
+
+// ── Date-aware getManager ─────────────────────────────────────────────────────
+function getManager(locName, weekLabel){
+  const rawMgr = LOC_DATA.locations[locName]?.manager || '—';
+  const rec = personnelOverrides[locName]?.manager;
+
+  let weekDate = null;
+  if(weekLabel){
+    const m = weekLabel.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if(m) weekDate = new Date(+m[3], +m[1]-1, +m[2]);
+  }
+
+  if(rec && rec.history && rec.history.length && weekDate){
+    const sorted = [...rec.history].sort((a,b) => new Date(a.date) - new Date(b.date));
+    let mgrAtTime = rawMgr;
+    for(const entry of sorted){
+      const effParts = (entry.effectiveDate||entry.date).split('/');
+      let effDate;
+      if(effParts.length === 3) effDate = new Date(+effParts[2], +effParts[0]-1, +effParts[1]);
+      else effDate = new Date(entry.date);
+      if(effDate <= weekDate) mgrAtTime = entry.to;
+    }
+    return mgrAtTime || 'TBD';
+  }
+
+  if(rec) return rec.current || 'TBD';
+  return rawMgr;
+}
+
+// ── Personnel tab render ──────────────────────────────────────────────────────
+function renderPersonnel(){
+  const search = (document.getElementById('pers-search')?.value || '').toLowerCase();
+  const tbody = document.getElementById('pers-tbody');
+  if(!tbody) return;
+
+  const locs = Object.keys(LOC_DATA.locations).filter(loc => {
+    if(!search) return true;
+    const coach = getCoach(loc, null);
+    const mgr = getManager(loc, null);
+    return loc.toLowerCase().includes(search) ||
+           coach.toLowerCase().includes(search) ||
+           mgr.toLowerCase().includes(search);
+  });
+
+  tbody.innerHTML = locs.map(loc => {
+    const info = LOC_DATA.locations[loc];
+    const state = loc.split('-')[0];
+    const coach = getCoach(loc, null);
+    const mgr = getManager(loc, null);
+    const origCoach = LOC_DATA.locations[loc]?.coach || '—';
+    const origMgr = LOC_DATA.locations[loc]?.manager || '—';
+    const coachRec = personnelOverrides[loc]?.coach;
+    const mgrRec = personnelOverrides[loc]?.manager;
+    const coachChanged = coachRec && coachRec.current !== origCoach;
+    const mgrChanged = mgrRec && mgrRec.current !== origMgr;
+    const hasHistory = coachRec?.history?.length || mgrRec?.history?.length;
+
+    const coachHistHtml = coachRec?.history?.length ? coachRec.history.slice().reverse().map(h =>
+      `<div style="font-size:10px;color:var(--text3);line-height:1.5">
+        ${h.effectiveDate||fmtDate(h.date)}: <span style="color:var(--red);text-decoration:line-through">${h.from}</span> → <span style="color:var(--green);font-weight:600">${h.to}</span>
+        ${h.note?`<span style="color:var(--text3);font-style:italic"> — ${h.note}</span>`:''}
+      </div>`
+    ).join('') : '';
+
+    const mgrHistHtml = mgrRec?.history?.length ? mgrRec.history.slice().reverse().map(h =>
+      `<div style="font-size:10px;color:var(--text3);line-height:1.5">
+        ${h.effectiveDate||fmtDate(h.date)}: <span style="color:var(--red);text-decoration:line-through">${h.from}</span> → <span style="color:var(--green);font-weight:600">${h.to}</span>
+        ${h.note?`<span style="color:var(--text3);font-style:italic"> — ${h.note}</span>`:''}
+      </div>`
+    ).join('') : '';
+
+    return `<tr style="${hasHistory?'background:var(--pu-lt)':''}">
+      <td style="font-weight:600;font-size:13px">${loc}</td>
+      <td style="font-size:12px;color:var(--text2)">${state}</td>
+      <td><span class="badge ${info.is_2me?'warn':'neutral'}" style="font-size:10px">${info.is_2me?'2ME':'1ME'}</span></td>
+      <td>
+        <span style="font-size:13px;${coachChanged?'color:var(--mg-dk);font-weight:600':''}">${coach}</span>
+        ${coachHistHtml}
+      </td>
+      <td>
+        <span style="font-size:13px;${mgrChanged?'color:var(--mg-dk);font-weight:600':''}">${mgr}</span>
+        ${mgrHistHtml}
+      </td>
+      <td>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+          <button class="btn sm" onclick="openPersonnelModal('${loc.replace(/'/g,"\\'")}')">Edit</button>
+          ${hasHistory?`<button class="btn sm" style="color:var(--text2);padding:4px 8px;font-size:11px" title="View full change log" onclick="viewChangeLog('${loc.replace(/'/g,"\\'")}')">Log</button>`:''}
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function fmtDate(iso){
+  if(!iso) return '—';
+  const d = new Date(iso);
+  return `${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()}`;
+}
+
+function openPersonnelModal(locName){
+  if(!isAdminUnlocked){ showPinModal(); return; }
+  personnelEditing = locName;
+  document.getElementById('pers-modal-title').textContent = locName;
+  document.getElementById('pers-modal-coach').value = getCoach(locName, null);
+  document.getElementById('pers-modal-manager').value = getManager(locName, null);
+  // Default effective date to today
+  const today = new Date();
+  document.getElementById('pers-modal-effdate').value =
+    `${String(today.getMonth()+1).padStart(2,'0')}/${String(today.getDate()).padStart(2,'0')}/${today.getFullYear()}`;
+  document.getElementById('pers-modal-note').value = '';
+  const modal = document.getElementById('pers-edit-modal');
+  modal.style.display = 'flex';
+  setTimeout(() => document.getElementById('pers-modal-coach').focus(), 50);
+}
+
+function closePersonnelModal(){
+  document.getElementById('pers-edit-modal').style.display = 'none';
+  personnelEditing = null;
+}
+
+function savePersonnelEdit(){
+  if(!personnelEditing) return;
+  const loc = personnelEditing;
+  const newCoach = document.getElementById('pers-modal-coach').value.trim();
+  const newMgr   = document.getElementById('pers-modal-manager').value.trim();
+  const effDate  = document.getElementById('pers-modal-effdate').value.trim();
+  const note     = document.getElementById('pers-modal-note').value.trim();
+  const now      = new Date().toISOString();
+
+  const origCoach = LOC_DATA.locations[loc]?.coach || '—';
+  const origMgr   = LOC_DATA.locations[loc]?.manager || '—';
+  const prevCoach = getCoach(loc, null);
+  const prevMgr   = getManager(loc, null);
+
+  if(!personnelOverrides[loc]) personnelOverrides[loc] = {};
+
+  // Record coach change if different
+  if(newCoach !== prevCoach){
+    if(!personnelOverrides[loc].coach) personnelOverrides[loc].coach = { current: prevCoach, history: [] };
+    personnelOverrides[loc].coach.history.push({ from: prevCoach, to: newCoach, date: now, effectiveDate: effDate, note });
+    personnelOverrides[loc].coach.current = newCoach;
+  }
+
+  // Record manager change if different
+  if(newMgr !== prevMgr){
+    if(!personnelOverrides[loc].manager) personnelOverrides[loc].manager = { current: prevMgr, history: [] };
+    personnelOverrides[loc].manager.history.push({ from: prevMgr, to: newMgr, date: now, effectiveDate: effDate, note });
+    personnelOverrides[loc].manager.current = newMgr;
+  }
+
+  // Clean up empty entries
+  if(personnelOverrides[loc].coach && !personnelOverrides[loc].coach.history.length) delete personnelOverrides[loc].coach;
+  if(personnelOverrides[loc].manager && !personnelOverrides[loc].manager.history.length) delete personnelOverrides[loc].manager;
+  if(!Object.keys(personnelOverrides[loc]).length) delete personnelOverrides[loc];
+
+  savePersistPersonnel();
+  closePersonnelModal();
+  showToast('Personnel updated & saved');
+  renderPersonnel();
+
+  // Refresh active tab
+  const active = document.querySelector('.page.active');
+  if(active){
+    const pid = active.id.replace('page-','');
+    if(['locations','managers','coaches','overview','understaffed','tracker','monthly'].includes(pid)) nav(pid);
+  }
+}
+
+function viewChangeLog(locName){
+  const rec = personnelOverrides[locName];
+  if(!rec) return;
+  const lines = [];
+  ['coach','manager'].forEach(role => {
+    const r = rec[role];
+    if(!r?.history?.length) return;
+    lines.push(`\n── ${role.toUpperCase()} CHANGES ──`);
+    r.history.slice().reverse().forEach(h => {
+      lines.push(`  Effective ${h.effectiveDate||fmtDate(h.date)}: ${h.from} → ${h.to}${h.note?' ('+h.note+')':''}\n  Logged: ${fmtDate(h.date)}`);
+    });
+  });
+  alert(`Change log for ${locName}:\n${lines.join('\n')}`);
+}
+
+// Close modal on backdrop click
+document.addEventListener('click', e => {
+  const modal = document.getElementById('pers-edit-modal');
+  if(modal && e.target === modal) closePersonnelModal();
+});
+
+// Enter saves, Escape closes
+document.addEventListener('keydown', e => {
+  if(e.key === 'Enter' && personnelEditing){
+    const tag = document.activeElement?.tagName;
+    if(tag !== 'TEXTAREA') savePersonnelEdit();
+  }
+  if(e.key === 'Escape' && personnelEditing) closePersonnelModal();
+});
+
+
+// Enter key saves modal
+document.addEventListener('keydown', e => {
+  if(e.key === 'Enter' && personnelEditing) savePersonnelEdit();
+  if(e.key === 'Escape' && personnelEditing) closePersonnelModal();
+});
+
+function renderAll(){
+    const hs=document.getElementById('hist-section');
+  hs.style.display=Object.keys(weeks).length?'block':'none';
+  document.getElementById('hist-list').innerHTML=Object.values(weeks).map(w=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
+      <span class="wk-pill" style="cursor:default"><span class="dot"></span>${w.label}</span>
+      <span style="font-size:12px;color:var(--text2)">${Object.keys(w.sched).length} locations &middot; ${w.conflicts.length} conflicts</span>
+      <button class="btn sm" onclick="switchWk('${w.key}');nav('overview')">Load</button>
+    </div>`).join('');
+}
+
+const dz=document.getElementById('drop-zone');
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drag');});
+dz.addEventListener('dragleave',()=>dz.classList.remove('drag'));
+dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag');if(!isAdminUnlocked){showPinModal();return;}handleFile(e.dataTransfer.files[0]);});
+
+// Load saved config from localStorage
+function loadConfig(){
+  try{
+    const c=JSON.parse(localStorage.getItem('sp_config')||'{}');
+    if(c.clientId) SP_CONFIG.clientId=c.clientId;
+    if(c.tenantId) SP_CONFIG.tenantId=c.tenantId;
+    if(c.siteUrl)  SP_CONFIG.siteUrl=c.siteUrl;
+    // Pre-fill setup form
+    if(document.getElementById('cfg-client'))document.getElementById('cfg-client').value=c.clientId||'';
+    if(document.getElementById('cfg-tenant'))document.getElementById('cfg-tenant').value=c.tenantId||'';
+    if(document.getElementById('cfg-site'))document.getElementById('cfg-site').value=c.siteUrl||'';
+  }catch(e){}
+}
+function saveConfig(){
+  const clientId=document.getElementById('cfg-client').value.trim();
+  const tenantId=document.getElementById('cfg-tenant').value.trim();
+  const siteUrl=document.getElementById('cfg-site').value.trim();
+  if(!clientId||!tenantId||!siteUrl){alert('Please fill in all three fields.');return;}
+  SP_CONFIG.clientId=clientId; SP_CONFIG.tenantId=tenantId; SP_CONFIG.siteUrl=siteUrl;
+  localStorage.setItem('sp_config',JSON.stringify({clientId,tenantId,siteUrl}));
+  document.getElementById('cfg-status').innerHTML='<span class="badge ok">Config saved! Reload the page then sign in with Microsoft.</span>';
+  setTimeout(()=>location.reload(),2000);
+}
+async function init(){
+  try {
+    loadConfig();
+    loadPersonnelOverrides();
+    await initMsal();
+    await loadW();
+    renderAll();
+    updatePinState();
+    populateOvSelects(); if(curWk) nav('overview');
+    else if(!SP_CONFIG.clientId) nav('setup');
+    else nav('upload');
+  } catch(e) {
+    console.error('Init error:', e);
+    try { renderAll(); updatePinState(); nav(Object.keys(weeks).length?'overview':'upload'); } catch(e2) {}
+  }
+}
+// Wait for DOM + external scripts to be ready before initializing
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => setTimeout(init, 100));
+} else {
+  setTimeout(init, 100);
+}
+</script>
+</body>
+</html>
