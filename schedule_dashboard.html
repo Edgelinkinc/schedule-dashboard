@@ -331,7 +331,11 @@ tr:hover td{background:var(--bg)}
       <div id="hist-section" style="margin-top:28px;display:none">
         <h3 style="font-size:14px;font-weight:600;margin-bottom:10px">Loaded weeks (saved in browser)</h3>
         <div id="hist-list"></div>
-        <button class="btn sm" style="margin-top:12px;color:var(--red)" onclick="if(!isAdminUnlocked){showPinModal();return;}clearAll()">Clear all history</button>
+        <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+          <button class="btn sm primary" onclick="forceSyncFromGH()">↓ Pull from GitHub</button>
+          <button class="btn sm" style="color:var(--red)" onclick="if(!isAdminUnlocked){showPinModal();return;}clearAll()">Clear all history</button>
+        </div>
+        <div id="sync-status" style="margin-top:10px;font-size:12px;color:var(--text2)"></div>
       </div>
     </div>
 
@@ -653,9 +657,11 @@ async function ghPut(payload, sha){
 
 // ── Load data from GitHub ─────────────────────────────────────────────────────
 async function loadFromSP(){
-  if(!GH_CONFIG.token) return false;
+  if(!GH_CONFIG.token){ console.log('GH sync: no token configured'); return false; }
+  console.log('GH sync: loading from GitHub...');
   const result = await ghGet();
-  if(!result || !result.content) return false;
+  if(!result){ console.warn('GH sync: ghGet returned null'); return false; }
+  if(!result.content){ console.log('GH sync: no data file yet'); return false; }
   try {
     const data = result.content;
     weeks = {};
@@ -664,7 +670,8 @@ async function loadFromSP(){
       weeks[w.key] = { key: w.key, label: w.label, sched: sc, conflicts: findConflicts(sc) };
     });
     if(Object.keys(weeks).length) curWk = Object.keys(weeks)[Object.keys(weeks).length - 1];
-    showToast('Loaded data from GitHub ✓');
+    console.log(`GH sync: loaded ${Object.keys(weeks).length} weeks`);
+    showToast('Loaded from GitHub ✓');
     return true;
   } catch(e) { console.error('GH load parse error:', e); return false; }
 }
@@ -674,13 +681,12 @@ let _ghSha = null; // track current file SHA for updates
 
 async function saveToSP(){
   saveLocal(); // always save locally first
-  if(!GH_CONFIG.token){ return; }
+  if(!GH_CONFIG.token){ showToast('Saved locally — sync not configured', true); return; }
   try {
-    // Get current SHA if we don't have it
-    if(!_ghSha){
-      const existing = await ghGet();
-      if(existing) _ghSha = existing.sha;
-    }
+    // Always get the current SHA fresh before writing to avoid conflicts
+    const existing = await ghGet();
+    _ghSha = existing?.sha || null;
+
     const payload = {
       weeks: Object.values(weeks).map(w => ({ key: w.key, label: w.label, sched: serSched(w.sched) })),
       personnel: JSON.parse(localStorage.getItem('sp_personnel_v2') || '{}'),
@@ -692,10 +698,15 @@ async function saveToSP(){
       const updated = await ghGet();
       if(updated) _ghSha = updated.sha;
       showToast('Saved & synced to GitHub ✓');
+      renderAuthBar();
     } else {
-      showToast('Saved locally — sync failed', true);
+      showToast('Sync failed — check console for details', true);
+      console.error('ghPut returned false — token may lack write access or repo name is wrong');
     }
-  } catch(e) { console.error('Save to GH error:', e); showToast('Saved locally — sync failed', true); }
+  } catch(e) {
+    console.error('Save to GH error:', e);
+    showToast('Saved locally — sync error: ' + e.message, true);
+  }
 }
 
 // ── Local storage fallback ────────────────────────────────────────────────────
@@ -1052,6 +1063,41 @@ function findConflicts(sched){
 
 function serSched(s){const o={};Object.entries(s).forEach(([l,ls])=>{o[l]={days:{}};DAYS.forEach(d=>{o[l].days[d]=(ls.days[d]||[]).map(sh=>({...sh,start:sh.start.toISOString(),end:sh.end.toISOString()}));});});return o;}
 function deSched(s){const o={};Object.entries(s).forEach(([l,ls])=>{o[l]={days:{}};DAYS.forEach(d=>{o[l].days[d]=(ls.days[d]||[]).map(sh=>({...sh,start:new Date(sh.start),end:new Date(sh.end)}));});});return o;}
+
+async function forceSyncFromGH(){
+  const statusEl = document.getElementById('sync-status');
+  if(!GH_CONFIG.token){
+    if(statusEl) statusEl.textContent = '✗ Sync not configured — go to Setup first.';
+    return;
+  }
+  if(statusEl) statusEl.textContent = '⏳ Pulling from GitHub...';
+  try {
+    const result = await ghGet();
+    if(!result){
+      if(statusEl) statusEl.textContent = '✗ Could not reach GitHub — check your internet connection.';
+      return;
+    }
+    if(!result.content || !result.content.weeks?.length){
+      if(statusEl) statusEl.textContent = '⚠ No schedule data found in GitHub yet — upload a schedule first.';
+      return;
+    }
+    weeks = {};
+    result.content.weeks.forEach(w => {
+      const sc = deSched(w.sched);
+      weeks[w.key] = { key: w.key, label: w.label, sched: sc, conflicts: findConflicts(sc) };
+    });
+    if(Object.keys(weeks).length) curWk = Object.keys(weeks)[Object.keys(weeks).length - 1];
+    sortWeeks();
+    saveLocal();
+    renderAll();
+    populateOvSelects();
+    if(statusEl) statusEl.innerHTML = `<span style="color:var(--green)">✓ Loaded ${Object.keys(weeks).length} week(s) from GitHub — Last updated: ${result.content.lastUpdated?.slice(0,16)||'unknown'}</span>`;
+    showToast('Synced from GitHub ✓');
+  } catch(e) {
+    console.error('Force sync error:', e);
+    if(statusEl) statusEl.textContent = '✗ Sync error: ' + e.message;
+  }
+}
 
 async function saveW(){await saveToSP();}
 async function loadW(){
