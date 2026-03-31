@@ -147,6 +147,10 @@ tr:hover td{background:var(--bg)}
   /* Schedule grid */
   .sg{font-size:11px}
   .sc{padding:5px 6px}
+  /* Location Admin rank columns — hide on mobile, show toggle button */
+  .rank-col{display:none}
+  .rank-col.visible{display:table-cell}
+  .rank-toggle-btn{display:inline-block}
   /* Bottom nav bar */
   .mobile-nav{
     display:flex;position:fixed;bottom:0;left:0;right:0;height:64px;
@@ -197,6 +201,8 @@ tr:hover td{background:var(--bg)}
 /* Desktop only — sidebar visible */
 @media(min-width:901px){
   .mobile-nav,.mobile-more-drawer{display:none!important}
+  .rank-toggle-btn{display:none}
+  .rank-col{display:table-cell!important}
 }
 </style>
 </head>
@@ -687,7 +693,16 @@ async function loadFromSP(){
     if(data.locOverrides && Object.keys(data.locOverrides).length){
       locOverrides = data.locOverrides;
       localStorage.setItem('loc_overrides', JSON.stringify(locOverrides));
-      console.log('PA sync: location overrides restored');
+    }
+    // Restore rank overrides from SharePoint
+    if(data.rankOverrides){
+      rankOverrides = data.rankOverrides;
+      localStorage.setItem('rank_overrides', JSON.stringify(rankOverrides));
+    }
+    // Restore approved absences from SharePoint
+    if(data.approvedAbsences){
+      approvedAbsences = data.approvedAbsences;
+      localStorage.setItem('approved_absences', JSON.stringify(approvedAbsences));
     }
     console.log(`PA sync: loaded ${Object.keys(weeks).length} weeks from SharePoint`);
     showToast('Loaded from SharePoint ✓');
@@ -714,6 +729,8 @@ async function saveToSP(){
       weeks: Object.values(weeks).map(w => ({ key: w.key, label: w.label, sched: serSched(w.sched) })),
       personnel: JSON.parse(localStorage.getItem('sp_personnel_v2') || '{}'),
       locOverrides: locOverrides || {},
+      rankOverrides: rankOverrides || {},
+      approvedAbsences: approvedAbsences || {},
       lastUpdated: new Date().toISOString()
     };
     const r = await fetch(PA_CONFIG.saveUrl, {
@@ -743,6 +760,8 @@ async function syncSettingsToSP(){
       weeks: Object.values(weeks).map(w => ({ key: w.key, label: w.label, sched: serSched(w.sched) })),
       personnel: JSON.parse(localStorage.getItem('sp_personnel_v2') || '{}'),
       locOverrides: locOverrides || {},
+      rankOverrides: rankOverrides || {},
+      approvedAbsences: approvedAbsences || {},
       lastUpdated: new Date().toISOString()
     };
     const r = await fetch(PA_CONFIG.saveUrl, {
@@ -802,6 +821,14 @@ async function forceSyncFromGH(){
     if(data.locOverrides && Object.keys(data.locOverrides).length){
       locOverrides = data.locOverrides;
       localStorage.setItem('loc_overrides', JSON.stringify(locOverrides));
+    }
+    if(data.rankOverrides){
+      rankOverrides = data.rankOverrides;
+      localStorage.setItem('rank_overrides', JSON.stringify(rankOverrides));
+    }
+    if(data.approvedAbsences){
+      approvedAbsences = data.approvedAbsences;
+      localStorage.setItem('approved_absences', JSON.stringify(approvedAbsences));
     }
     saveLocal();
     renderAll();
@@ -1188,11 +1215,30 @@ function getViols(shift,day,locName,all){
     let sl = new Date(ds);
     while(sl<de){const se=new Date(sl.getTime()+30*60000);const on=all.filter(s=>s.start<=sl&&s.end>=se).length;if(on<2){viols.push({type:'2ME GAP',msg:`Only ${on} emp ${fT(sl)}-${fT(se)}`,sev:'err'});break;}sl=se;}
   }
+  // ── Manager Required Day — ranks 1–4 require manager on schedule ─────────
+  // Only fire once per day (on the first shift in the all array)
+  if(all.length && shift === all[0]){
+    const ranks = getEffectiveRanks(locName);
+    const rank  = ranks[day] || 0;
+    if(rank >= 1 && rank <= 4){
+      const mgr = getManager(locName, shift._weekLabel || null);
+      if(mgr && mgr !== 'TBD' && mgr !== ''){
+        const mgrPresent = isManagerPresent(locName, all, shift._weekLabel || null);
+        const wkKey      = shift._weekKey || null;
+        const absApproved = wkKey ? isAbsenceApproved(wkKey, locName, day) : false;
+        if(!mgrPresent && !absApproved){
+          viols.push({type:'MGR REQUIRED DAY', msg:`Rank ${rank} — ${mgr.split(' ').pop()} not on schedule`, sev:'warn'});
+        }
+      }
+    }
+  }
   return viols;
 }
 
 function scoreLoc(locName,ls,weekLabel){
   let total=0;const types={};
+  // Derive weekKey from weekLabel for approved absence lookups
+  const weekKey = weekLabel ? Object.keys(weeks).find(k=>weeks[k].label===weekLabel) || null : null;
   const holidays=weekLabel?getWeekHolidays(weekLabel):{};
   DAYS.forEach(day=>{
     // Skip scoring entirely if location is officially closed for a holiday
@@ -1205,10 +1251,28 @@ function scoreLoc(locName,ls,weekLabel){
     }
     const shifts=ls?ls.days[day]:[];
     if(!shifts||!shifts.length){
-      if(getLocData(locName)?.hours[day]){total++;types['NO COVERAGE']=(types['NO COVERAGE']||0)+1;}return;
+      if(getLocData(locName)?.hours[day]){
+        total++;types['NO COVERAGE']=(types['NO COVERAGE']||0)+1;
+        // Also flag manager required day when no schedule at all
+        const rank = getEffectiveRanks(locName)[day] || 0;
+        if(rank >= 1 && rank <= 4){
+          const mgr = getManager(locName, weekLabel);
+          if(mgr && mgr !== 'TBD' && mgr !== ''){
+            const absApproved = weekKey ? isAbsenceApproved(weekKey, locName, day) : false;
+            if(!absApproved){
+              types['MGR REQUIRED DAY']=(types['MGR REQUIRED DAY']||0)+1;
+              total++;
+            }
+          }
+        }
+      }
+      return;
     }
     const seen=new Set();
     shifts.forEach(sh=>{
+      // Stamp week context so getViols can look up approved absences
+      sh._weekKey   = weekKey;
+      sh._weekLabel = weekLabel;
       getViols(sh,day,locName,shifts).forEach(v=>{
         const k=day+v.type;if(!seen.has(k)){seen.add(k);total++;types[v.type]=(types[v.type]||0)+1;}
       });
@@ -1414,7 +1478,54 @@ async function finishLoad(res){
   sortWeeks();
   curWk=Object.keys(weeks)[Object.keys(weeks).length-1];
   await saveW();renderAll();populateOvSelects();nav('overview');
-  showToast(isReplace?'Schedule replaced: '+res.label:'Schedule loaded: '+res.label);
+
+  // ── Upload summary ────────────────────────────────────────────────────────
+  const expectedLocs  = Object.keys(LOC_DATA.locations);
+  const uploadedLocs  = Object.keys(res.sched);
+  const foundCount    = uploadedLocs.length;
+  const expectedCount = expectedLocs.length;
+  const missing       = expectedLocs.filter(l => !uploadedLocs.includes(l));
+  const unexpected    = uploadedLocs.filter(l => !expectedLocs.includes(l));
+
+  let summaryMsg = `${isReplace?'Replaced':'Loaded'}: ${res.label} — ${foundCount} of ${expectedCount} locations found`;
+  if(missing.length || unexpected.length){
+    // Show detailed summary modal
+    let modalHtml = `<div style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px" id="upload-summary-modal">
+      <div style="background:var(--surface);border-radius:16px;padding:28px 32px;max-width:520px;width:100%;box-shadow:0 24px 80px rgba(0,0,0,.4);max-height:80vh;overflow-y:auto">
+        <h3 style="font-size:16px;font-weight:700;color:var(--pu);margin:0 0 4px">Upload Complete</h3>
+        <p style="font-size:13px;color:var(--text2);margin:0 0 16px">${res.label}</p>
+        <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+          <div style="background:var(--green-bg,#F0FFF4);border:1px solid var(--green);border-radius:8px;padding:10px 16px;flex:1;min-width:100px;text-align:center">
+            <div style="font-size:22px;font-weight:700;color:var(--green)">${foundCount}</div>
+            <div style="font-size:11px;color:var(--text2)">Locations found</div>
+          </div>
+          <div style="background:${missing.length?'#FFF0F0':'#F0FFF4'};border:1px solid ${missing.length?'var(--red)':'var(--green)'};border-radius:8px;padding:10px 16px;flex:1;min-width:100px;text-align:center">
+            <div style="font-size:22px;font-weight:700;color:${missing.length?'var(--red)':'var(--green)'}">${missing.length}</div>
+            <div style="font-size:11px;color:var(--text2)">Missing from file</div>
+          </div>
+          ${unexpected.length?`<div style="background:#FFF8E7;border:1px solid var(--amber);border-radius:8px;padding:10px 16px;flex:1;min-width:100px;text-align:center">
+            <div style="font-size:22px;font-weight:700;color:var(--amber)">${unexpected.length}</div>
+            <div style="font-size:11px;color:var(--text2)">Unrecognized names</div>
+          </div>`:''}
+        </div>
+        ${missing.length?`<div style="margin-bottom:12px">
+          <div style="font-size:11px;font-weight:700;color:var(--red);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em">Missing locations — scored as No Schedule:</div>
+          <div style="display:flex;flex-wrap:wrap;gap:4px">${missing.map(l=>`<span style="background:#FFF0F0;border:1px solid var(--red)40;color:var(--red);font-size:11px;padding:2px 8px;border-radius:99px">${l}</span>`).join('')}</div>
+        </div>`:''}
+        ${unexpected.length?`<div style="margin-bottom:12px">
+          <div style="font-size:11px;font-weight:700;color:var(--amber);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em">Names in file not matching any location:</div>
+          <div style="display:flex;flex-wrap:wrap;gap:4px">${unexpected.map(l=>`<span style="background:#FFF8E7;border:1px solid var(--amber)40;color:#7C5C00;font-size:11px;padding:2px 8px;border-radius:99px">${l}</span>`).join('')}</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:6px">These may be name mismatches. Check Location Admin for the exact expected names.</div>
+        </div>`:''}
+        <button class="btn primary" onclick="document.getElementById('upload-summary-modal')?.remove()" style="width:100%;margin-top:8px">Got it</button>
+      </div>
+    </div>`;
+    const modalEl = document.createElement('div');
+    modalEl.innerHTML = modalHtml;
+    document.body.appendChild(modalEl.firstElementChild);
+  } else {
+    showToast(`${isReplace?'Replaced':'Loaded'}: ${res.label} — all ${foundCount} locations found ✓`);
+  }
 }
 
 function clearAll(){if(confirm('Clear all saved schedule history?')){weeks={};curWk=null;localStorage.removeItem('sw');renderAll();nav(isAdminUnlocked?'upload':'overview');}}
@@ -1662,7 +1773,7 @@ function renderOverview(){
 
   // When overview week changes, reset all other tab selects so they re-sync on next visit
   const ovActiveKey=getOvActiveWkKey();
-  ['lc-wk','mgr-wk','cch-wk','conf-wk','us-wk','mo-wk'].forEach(id=>{
+  ['lc-wk','mgr-wk','cch-wk','conf-wk','us-wk','mo-wk','os-wk'].forEach(id=>{
     const el=document.getElementById(id);
     if(el)el.value=''; // cleared — will re-sync to ov on next populatePageWkSelect
   });
@@ -1804,7 +1915,7 @@ function renderOverview(){
   // ── VIOLATIONS BARS ────────────────────────────────────────────────────────
   const allTypes=[...new Set([...Object.keys(curr.vt),...(prev?Object.keys(prev.vt):[])])];
   const mx=Math.max(...allTypes.map(t=>curr.vt[t]||0),1);
-  const vc={'2ME GAP':'#dc2626','NO COVERAGE':'#b91c1c','SHORT SHIFT':'#d97706','LATE OPEN':'#d97706','EARLY CLOSE':'#d97706','OVERSTAFFED':'#2563eb'};
+  const vc={'2ME GAP':'#dc2626','NO COVERAGE':'#b91c1c','SHORT SHIFT':'#d97706','LATE OPEN':'#d97706','EARLY CLOSE':'#d97706','OVERSTAFFED':'#2563eb','MGR REQUIRED DAY':'#7C3AED'};
   const violHTML=allTypes.sort((a,b)=>(curr.vt[b]||0)-(curr.vt[a]||0)).map(t=>{
     const n2=curr.vt[t]||0; const n1=prev?prev.vt[t]||0:null;
     const d=n1!==null?n2-n1:null;
@@ -2328,7 +2439,7 @@ function showLoc(locName){
   const activePage=document.querySelector('.page.active');
   if(activePage)locDetailFrom=activePage.id.replace('page-','');
   const w=getActiveWk();if(!w)return;
-  const info=getLocData(locName);const ranks=LOC_DATA.ranks[locName]||{};
+  const info=getLocData(locName);const ranks=getEffectiveRanks(locName);
   const ls=w.sched[locName];const sc=scoreLoc(locName,ls,w.label);
   const cols=7;
   let html=`<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;gap:16px;flex-wrap:wrap">
@@ -2363,7 +2474,16 @@ function showLoc(locName){
   } else {
     const empSet=new Set();DAYS.forEach(d=>(ls.days[d]||[]).forEach(s=>empSet.add(s.emp)));const emps=[...empSet].sort();
     if(sc.violations>0){
-      html+=`<div style="background:var(--red-lt);border:1px solid #fca5a5;border-radius:var(--r);padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span style="font-size:13px;font-weight:600;color:var(--red)">${sc.violations} violation${sc.violations>1?'s':''} found:</span>${Object.entries(sc.types).map(([t,n])=>`<span class="badge err">${t}: ${n}</span>`).join(' ')}</div>`;
+      html+=`<div style="background:var(--red-lt);border:1px solid #fca5a5;border-radius:var(--r);padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span style="font-size:13px;font-weight:600;color:var(--red)">${sc.violations} violation${sc.violations>1?'s':''} found:</span>${Object.entries(sc.types).map(([t,n])=>`<span class="badge err" style="background:${vc[t]||'#dc2626'}">${t}: ${n}</span>`).join(' ')}</div>
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:8px 14px;margin-bottom:12px;font-size:11px;color:var(--text2);display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+      <span style="font-weight:600;color:var(--text)">Legend:</span>
+      <span><b style="color:#b91c1c">NO COVERAGE</b> — no shifts submitted</span>
+      <span><b style="color:#d97706">LATE OPEN / EARLY CLOSE</b> — timing gap &gt;15 min</span>
+      <span><b style="color:#d97706">SHORT SHIFT</b> — under minimum hours</span>
+      <span><b style="color:#dc2626">2ME GAP</b> — understaffed 11 AM–last hour</span>
+      <span><b style="color:#7C3AED">MGR REQUIRED DAY</b> — rank 1–4 day, manager absent</span>
+      <span><b style="color:#2563eb">OVERSTAFFED</b> — more than 2 at same time</span>
+    </div>`;
     }
     const gcols=`160px repeat(${cols},1fr)`;
     html+=`<div class="sg" style="grid-template-columns:${gcols};margin-bottom:20px">
@@ -2412,6 +2532,88 @@ function showLoc(locName){
       <div class="mc ${sCls(sc.score)==='ok'?'success':sCls(sc.score)==='warn'?'warning':'danger'}" style="flex:1;min-width:110px"><div class="lbl">Compliance</div><div class="val" style="font-size:20px">${sc.score}%</div></div>
     </div>`;
   }
+
+  // ── Manager Required Days panel ─────────────────────────────────────────
+  const effectiveRanks = getEffectiveRanks(locName);
+  const weekKey = w ? Object.keys(weeks).find(k=>weeks[k].label===w.label) || null : null;
+  const mgr = getManager(locName, w?.label);
+  const requiredDays = DAYS.filter(day => (effectiveRanks[day]||0) >= 1 && (effectiveRanks[day]||0) <= 4);
+
+  if(requiredDays.length > 0 && mgr && mgr !== 'TBD'){
+    html += `<div class="card" style="margin-top:16px">
+      <div class="ch" style="display:flex;align-items:center;justify-content:space-between">
+        <h3 style="font-size:14px">Manager Required Days</h3>
+        <span style="font-size:12px;color:var(--text2)">Manager: <b>${mgr}</b> &nbsp;·&nbsp; Days ranked 1–4 require manager on schedule</span>
+      </div>
+      <div class="cb" style="padding:12px 16px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap">`;
+
+    requiredDays.forEach(day => {
+      const rank = effectiveRanks[day];
+      const dayShifts = ls?.days?.[day] || [];
+      const mgrPresent = isManagerPresent(locName, dayShifts, w?.label);
+      const approved   = weekKey ? isAbsenceApproved(weekKey, locName, day) : false;
+      const noSchedule = !dayShifts.length;
+
+      let statusColor, statusLabel, statusBg;
+      if(noSchedule){
+        statusColor = '#666'; statusLabel = 'No Schedule'; statusBg = '#F5F5F5';
+      } else if(mgrPresent === true){
+        statusColor = '#00A651'; statusLabel = 'Present ✓'; statusBg = '#F0FFF4';
+      } else if(approved){
+        statusColor = '#FFB300'; statusLabel = 'Approved Absence'; statusBg = '#FFF8E7';
+      } else {
+        statusColor = '#D32F2F'; statusLabel = 'NOT on schedule'; statusBg = '#FFF0F0';
+      }
+
+      const adminControls = isAdminUnlocked && weekKey && !noSchedule && mgrPresent !== true
+        ? `<br><label style="display:flex;align-items:center;gap:4px;margin-top:6px;cursor:pointer;font-size:10px;color:var(--text2)">
+            <input type="checkbox" ${approved?'checked':''} onchange="toggleApprovedAbsence('${weekKey}','${locName.replace(/'/g,"\\'")}','${day}')" style="accent-color:var(--mg)">
+            Approve absence
+           </label>`
+        : '';
+
+      html += `<div style="background:${statusBg};border:1px solid ${statusColor}40;border-radius:var(--rl);padding:10px 14px;min-width:100px;text-align:center">
+        <div style="font-weight:700;font-size:11px;color:var(--pu)">${day.slice(0,3)}</div>
+        <div style="font-size:10px;color:var(--text2);margin:2px 0">Rank <b>${rank}</b></div>
+        <div style="font-size:11px;font-weight:600;color:${statusColor}">${statusLabel}</div>
+        ${adminControls}
+      </div>`;
+    });
+
+    html += `</div></div></div>`;
+
+    // ── Approval History log ─────────────────────────────────────────────
+    const log = weekKey ? (approvedAbsences[weekKey]?.[locName]?._log || []) : [];
+    if(log.length > 0){
+      html += `<div class="card" style="margin-top:8px">
+        <div class="ch"><h3 style="font-size:13px">Absence Approval Log</h3></div>
+        <div class="cb" style="padding:0">
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead><tr style="background:var(--pu-lt)">
+              <th style="padding:8px 14px;text-align:left;color:var(--pu);font-weight:600">Day</th>
+              <th style="padding:8px 14px;text-align:left;color:var(--pu);font-weight:600">Action</th>
+              <th style="padding:8px 14px;text-align:left;color:var(--pu);font-weight:600">Date &amp; Time</th>
+            </tr></thead>
+            <tbody>
+              ${[...log].reverse().map((entry,i) => `<tr style="background:${i%2?'var(--surface2)':'var(--surface)'};border-bottom:1px solid var(--border)">
+                <td style="padding:7px 14px;font-weight:600;color:var(--pu)">${entry.day}</td>
+                <td style="padding:7px 14px">
+                  <span style="color:${entry.action==='approved'?'var(--green)':'var(--text3)'};font-weight:600">
+                    ${entry.action==='approved'?'✓ Approved':'✗ Revoked'}
+                  </span>
+                </td>
+                <td style="padding:7px 14px;color:var(--text2);font-family:'DM Mono',monospace;font-size:11px">
+                  ${new Date(entry.ts).toLocaleDateString()} ${new Date(entry.ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}
+                </td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+    }
+  }
+
   document.getElementById('loc-detail').innerHTML=html;nav('loc-detail');
 }
 
@@ -2924,6 +3126,24 @@ function renderOpenShifts(){
           });
         }
       } else {
+        // Check for manager absent on required days
+        if(!missingOnly){
+          const rank = getEffectiveRanks(loc)[day] || 0;
+          if(rank >= 1 && rank <= 4){
+            const mgrPresent = isManagerPresent(loc, shifts, wk.label);
+            const weekKey2 = Object.keys(weeks).find(k=>weeks[k].label===wk.label) || null;
+            const absApproved = weekKey2 ? isAbsenceApproved(weekKey2, loc, day) : false;
+            if(!mgrPresent && !absApproved && manager !== 'TBD'){
+              openShifts.push({
+                loc, day, dayDate, market, coach, manager,
+                type: 'MGR ABSENT',
+                detail: `Rank ${rank} day — ${manager.split(' ').pop()} not on schedule`,
+                urgent: false,
+                mgrAbsent: true
+              });
+            }
+          }
+        }
         // Check for understaffing gaps on 2ME stores
         // Single coverage allowed: 9:45–11:00 AM and last hour of day
         const is2me = info.is_2me;
@@ -3019,23 +3239,25 @@ ${'─'.repeat(40)}
 
       dayShifts.forEach(s => {
         totalCount++;
-        const urgentBadge = s.urgent
+        const badge = s.urgent
           ? `<span style="background:var(--red);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;margin-left:8px">URGENT</span>`
+          : s.mgrAbsent
+          ? `<span style="background:#7C3AED;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;margin-left:8px">MGR ABSENT</span>`
           : `<span style="background:var(--amber);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;margin-left:8px">GAP</span>`;
 
         html += `<div style="padding:10px 20px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap">
           <div style="flex:1;min-width:200px">
-            <div style="font-weight:600;font-size:13px;color:var(--pu)">${s.loc} ${urgentBadge}</div>
+            <div style="font-weight:600;font-size:13px;color:var(--pu)">${s.loc} ${badge}</div>
             <div style="font-size:12px;color:var(--text2);margin-top:2px">
-              🕐 ${s.detail} &nbsp;·&nbsp; Coach: <b>${s.coach}</b> &nbsp;·&nbsp; Mgr: <b>${s.manager}</b>
+              ${s.mgrAbsent ? '👤' : '🕐'} ${s.detail} &nbsp;·&nbsp; Coach: <b>${s.coach}</b> &nbsp;·&nbsp; Mgr: <b>${s.manager}</b>
             </div>
           </div>
         </div>`;
 
-        const urgentTag = s.urgent ? '[URGENT - NO COVERAGE]' : '[COVERAGE GAP]';
-        copyText += `    • ${s.loc} ${urgentTag}
+        const tag = s.urgent ? '[URGENT - NO COVERAGE]' : s.mgrAbsent ? '[MGR ABSENT - REQUIRED DAY]' : '[COVERAGE GAP]';
+        copyText += `    • ${s.loc} ${tag}
 `;
-        copyText += `      Hours: ${s.detail}
+        copyText += `      Detail: ${s.detail}
 `;
         copyText += `      Coach: ${s.coach} | Manager: ${s.manager}
 `;
@@ -3046,8 +3268,14 @@ ${'─'.repeat(40)}
   });
 
   // Summary header
+  const urgentCount  = openShifts.filter(s=>s.urgent).length;
+  const mgrAbsCount  = openShifts.filter(s=>s.mgrAbsent).length;
+  const gapCount     = openShifts.filter(s=>!s.urgent&&!s.mgrAbsent).length;
   const summaryHtml = `<div style="padding:12px 20px;background:var(--surface2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:16px;flex-wrap:wrap">
-    <span style="font-size:13px;font-weight:600;color:var(--text)">📋 ${totalCount} open shift${totalCount!==1?'s':''} found</span>
+    <span style="font-size:13px;font-weight:600;color:var(--text)">📋 ${totalCount} item${totalCount!==1?'s':''} found</span>
+    ${urgentCount?`<span style="background:var(--red);color:#fff;font-size:11px;font-weight:700;padding:2px 10px;border-radius:99px">${urgentCount} URGENT</span>`:''}
+    ${mgrAbsCount?`<span style="background:#7C3AED;color:#fff;font-size:11px;font-weight:700;padding:2px 10px;border-radius:99px">${mgrAbsCount} MGR ABSENT</span>`:''}
+    ${gapCount?`<span style="background:var(--amber);color:#fff;font-size:11px;font-weight:700;padding:2px 10px;border-radius:99px">${gapCount} GAP</span>`:''}
     <span style="font-size:12px;color:var(--text2)">Week: <b>${wk.label}</b></span>
     ${filterDay?`<span style="font-size:12px;color:var(--text2)">Day: <b>${filterDay}</b></span>`:''}
     ${filterMarket?`<span style="font-size:12px;color:var(--text2)">Market: <b>${filterMarket}</b></span>`:''}
@@ -3091,19 +3319,106 @@ function copyOpenShifts(){
 // ── Location Admin ────────────────────────────────────────────────────────────
 // Overrides stored in localStorage — merged on top of LOC_DATA at runtime
 let locOverrides = {};
+let rankOverrides = {};     // { locName: { Monday: 3, Tuesday: 1, ... } }
+let approvedAbsences = {};  // { weekKey: { locName: { Monday: true, ... } } }
 
 function loadLocOverrides(){
   try { locOverrides = JSON.parse(localStorage.getItem('loc_overrides') || '{}'); } catch(e){ locOverrides={}; }
+  try { rankOverrides = JSON.parse(localStorage.getItem('rank_overrides') || '{}'); } catch(e){ rankOverrides={}; }
+  try { approvedAbsences = JSON.parse(localStorage.getItem('approved_absences') || '{}'); } catch(e){ approvedAbsences={}; }
 }
 
 function saveLocOverrides(){
   localStorage.setItem('loc_overrides', JSON.stringify(locOverrides));
 }
 
+function saveRankOverrides(){
+  localStorage.setItem('rank_overrides', JSON.stringify(rankOverrides));
+}
+
+function saveApprovedAbsences(){
+  localStorage.setItem('approved_absences', JSON.stringify(approvedAbsences));
+}
+
+// Get effective ranks for a location — merges rankOverrides on top of LOC_DATA.ranks
+function getEffectiveRanks(locName){
+  const base = LOC_DATA.ranks[locName] || {};
+  const ov   = rankOverrides[locName]  || {};
+  return { ...base, ...ov };
+}
+
+// Get last name from a full name string
+function getLastName(fullName){
+  if(!fullName) return '';
+  return fullName.trim().split(/\s+/).pop().toLowerCase();
+}
+
+// Check if manager is present on a day (last-name match)
+function isManagerPresent(locName, dayShifts, weekLabel){
+  const mgr = getManager(locName, weekLabel);
+  if(!mgr || mgr === 'TBD' || mgr === '') return null; // TBD — rule skipped
+  const mgrLast = getLastName(mgr);
+  if(!mgrLast) return null;
+  return dayShifts.some(sh => getLastName(sh.emp) === mgrLast);
+}
+
+// Set rank override for a location/day
+function setRankOverride(locName, day, val){
+  const v = parseInt(val);
+  if(isNaN(v) || v < 1 || v > 7) return;
+  if(!rankOverrides[locName]) rankOverrides[locName] = {};
+  const base = LOC_DATA.ranks[locName]?.[day];
+  if(base === v){
+    delete rankOverrides[locName][day];
+    if(!Object.keys(rankOverrides[locName]).length) delete rankOverrides[locName];
+  } else {
+    rankOverrides[locName][day] = v;
+  }
+  saveRankOverrides();
+  clearTimeout(window._locSyncTimer);
+  window._locSyncTimer = setTimeout(()=>syncSettingsToSP(), 1500);
+}
+
+// Toggle approved absence for a location/day/week
+function toggleApprovedAbsence(weekKey, locName, day){
+  if(!approvedAbsences[weekKey]) approvedAbsences[weekKey] = {};
+  if(!approvedAbsences[weekKey][locName]) approvedAbsences[weekKey][locName] = {};
+  const current = approvedAbsences[weekKey][locName][day];
+  if(current){
+    // Remove approval — keep in log with revoked flag
+    if(!approvedAbsences[weekKey][locName]._log) approvedAbsences[weekKey][locName]._log = [];
+    approvedAbsences[weekKey][locName]._log.push({
+      day, action: 'revoked', ts: new Date().toISOString()
+    });
+    delete approvedAbsences[weekKey][locName][day];
+  } else {
+    // Grant approval — log it
+    approvedAbsences[weekKey][locName][day] = true;
+    if(!approvedAbsences[weekKey][locName]._log) approvedAbsences[weekKey][locName]._log = [];
+    approvedAbsences[weekKey][locName]._log.push({
+      day, action: 'approved', ts: new Date().toISOString()
+    });
+  }
+  saveApprovedAbsences();
+  clearTimeout(window._locSyncTimer);
+  window._locSyncTimer = setTimeout(()=>syncSettingsToSP(), 1500);
+  const actionLabel = approvedAbsences[weekKey]?.[locName]?.[day] ? 'Absence approved ✓' : 'Approval revoked';
+  showToast(actionLabel);
+  // Re-render location detail if open
+  const ldPage = document.getElementById('page-loc-detail');
+  if(ldPage?.classList.contains('active')) showLoc(locName);
+}
+
+function isAbsenceApproved(weekKey, locName, day){
+  return approvedAbsences[weekKey]?.[locName]?.[day] === true;
+}
+
 function resetLocOverrides(){
-  if(!confirm('Reset all location settings to defaults?')) return;
+  if(!confirm('Reset all location settings to defaults? This will also reset rank overrides.')) return;
   locOverrides = {};
+  rankOverrides = {};
   saveLocOverrides();
+  saveRankOverrides();
   renderLocAdmin();
   showToast('Location settings reset to defaults');
 }
@@ -3132,27 +3447,42 @@ function setLocOverride(locName, field, value){
   window._locSyncTimer = setTimeout(()=>syncSettingsToSP(), 1500);
 }
 
+// Toggle rank columns visibility on mobile
+let _rankColsVisible = window.innerWidth >= 901;
+function toggleRankCols(){
+  _rankColsVisible = !_rankColsVisible;
+  document.querySelectorAll('.rank-col').forEach(el => {
+    el.classList.toggle('visible', _rankColsVisible);
+  });
+  const btn = document.querySelector('.rank-toggle-btn');
+  if(btn) btn.textContent = (_rankColsVisible ? '📅 Hide' : '📅 Show') + ' Day Rankings';
+}
+
 function renderLocAdmin(){
   const el = document.getElementById('locadmin-table');
   if(!el) return;
   const locs = Object.keys(LOC_DATA.locations).sort();
   const overrideCount = Object.keys(locOverrides).length;
+  const rankOvCount   = Object.keys(rankOverrides).length;
+  const DS_SHORT = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const DAYS_LIST = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 
-  let html = `<div style="padding:12px 20px;background:var(--surface2);font-size:12px;color:var(--text2);border-bottom:1px solid var(--border)">
-    ${overrideCount > 0 ? `<span style="color:var(--mg);font-weight:600">⚡ ${overrideCount} location${overrideCount!==1?'s':''} with custom settings</span> · ` : ''}
-    Edit budget hours, ME type, and manager name. Changes apply immediately to compliance scoring.
+  let html = `<div style="padding:12px 20px;background:var(--surface2);font-size:12px;color:var(--text2);border-bottom:1px solid var(--border);display:flex;gap:16px;flex-wrap:wrap;align-items:center">
+    ${overrideCount > 0 ? `<span style="color:var(--mg);font-weight:600">⚡ ${overrideCount} location${overrideCount!==1?'s':''} with custom settings</span>` : ''}
+    ${rankOvCount > 0 ? `<span style="color:#7C3AED;font-weight:600">📅 ${rankOvCount} location${rankOvCount!==1?'s':''} with custom day rankings</span>` : ''}
+    <span>Days ranked <b>1–4</b> require manager on schedule. Rankings update quarterly. Changes save and sync to SharePoint automatically.</span>
+    <button class="rank-toggle-btn btn sm" onclick="toggleRankCols()" style="font-size:11px;padding:4px 10px;margin-left:auto">📅 Show/Hide Day Rankings</button>
   </div>
   <div style="overflow-x:auto">
-  <table style="width:100%;border-collapse:collapse;font-size:13px">
+  <table style="width:100%;border-collapse:collapse;font-size:12px">
     <thead>
       <tr style="background:var(--pu-lt)">
-        <th style="padding:10px 16px;text-align:left;color:var(--pu);font-weight:600;white-space:nowrap">Location</th>
-        <th style="padding:10px 12px;text-align:left;color:var(--pu);font-weight:600">Coach</th>
-        <th style="padding:10px 12px;text-align:left;color:var(--pu);font-weight:600">Manager</th>
-        <th style="padding:10px 12px;text-align:center;color:var(--pu);font-weight:600">Type</th>
-        <th style="padding:10px 12px;text-align:center;color:var(--pu);font-weight:600">Budget Hrs</th>
-        <th style="padding:10px 12px;text-align:center;color:var(--pu);font-weight:600">1ME / 2ME</th>
-        <th style="padding:10px 12px;text-align:center;color:var(--pu);font-weight:600">Modified</th>
+        <th style="padding:10px 12px;text-align:left;color:var(--pu);font-weight:600;white-space:nowrap;min-width:140px">Location</th>
+        <th style="padding:10px 8px;text-align:left;color:var(--pu);font-weight:600;min-width:80px">Manager</th>
+        <th style="padding:10px 8px;text-align:center;color:var(--pu);font-weight:600">Budget</th>
+        <th style="padding:10px 8px;text-align:center;color:var(--pu);font-weight:600">ME</th>
+        ${DS_SHORT.map(d=>`<th class="rank-col" style="padding:10px 6px;text-align:center;color:var(--pu);font-weight:600;min-width:48px">${d}<br><span style="font-size:9px;font-weight:400;color:var(--text3)">rank</span></th>`).join('')}
+        <th style="padding:10px 8px;text-align:center;color:var(--pu);font-weight:600">Status</th>
       </tr>
     </thead>
     <tbody>`;
@@ -3160,42 +3490,62 @@ function renderLocAdmin(){
   locs.forEach((loc, i) => {
     const d = getLocData(loc);
     const ov = locOverrides[loc] || {};
-    const hasOverride = Object.keys(ov).length > 0;
+    const rankOv = rankOverrides[loc] || {};
+    const hasLocOv  = Object.keys(ov).length > 0;
+    const hasRankOv = Object.keys(rankOv).length > 0;
+    const hasAny    = hasLocOv || hasRankOv;
     const bg = i % 2 === 0 ? '' : 'background:var(--surface2)';
-    const ovStyle = hasOverride ? 'background:#FFF0F7;' : bg;
+    const rowStyle = hasAny ? 'background:#FFF0F7;' : bg;
+    const ranks = getEffectiveRanks(loc);
 
-    html += `<tr style="${ovStyle};border-bottom:1px solid var(--border)">
-      <td style="padding:8px 16px;font-weight:600;color:var(--pu);white-space:nowrap">
-        ${hasOverride ? '<span style="color:var(--mg);margin-right:4px" title="Custom settings">⚡</span>' : ''}
-        ${loc}
+    const rankCells = DAYS_LIST.map(day => {
+      const rank = ranks[day] || 0;
+      const isRequired = rank >= 1 && rank <= 4;
+      const isOverridden = rankOv[day] !== undefined;
+      const color = isRequired ? '#7C3AED' : 'var(--text3)';
+      const fw = isRequired ? '700' : '400';
+      return `<td class="rank-col" style="padding:6px;text-align:center">
+        <input type="number" value="${rank}" min="1" max="7"
+          title="${day} rank — 1-4 = manager required, 5-7 = optional"
+          style="width:38px;padding:3px 4px;border:1px solid ${isOverridden?'#7C3AED':'var(--border2)'};border-radius:var(--r);font-size:12px;font-family:inherit;text-align:center;font-weight:${fw};color:${color};background:${isRequired?'#F5F0FF':'var(--surface)'}"
+          onchange="setRankOverride('${loc}','${day}',this.value);renderLocAdmin()">
+      </td>`;
+    }).join('');
+
+    html += `<tr style="${rowStyle};border-bottom:1px solid var(--border)">
+      <td style="padding:8px 12px;font-weight:600;color:var(--pu);font-size:12px;white-space:nowrap">
+        ${hasAny ? '<span style="color:var(--mg);margin-right:3px">⚡</span>' : ''}${loc}
       </td>
-      <td style="padding:8px 12px;color:var(--text2);font-size:12px">${d.coach||'TBD'}</td>
-      <td style="padding:8px 12px">
-        <input type="text" value="${d.manager||''}"
-          style="width:140px;padding:4px 8px;border:1px solid var(--border2);border-radius:var(--r);font-size:12px;font-family:inherit"
-          onchange="setLocOverride('${loc}','manager',this.value)"
-          placeholder="Manager name">
+      <td style="padding:6px 8px">
+        <input type="text" value="${(d.manager||'').replace(/"/g,'&quot;')}"
+          style="width:120px;padding:3px 6px;border:1px solid var(--border2);border-radius:var(--r);font-size:11px;font-family:inherit"
+          onchange="setLocOverride('${loc}','manager',this.value)" placeholder="TBD">
       </td>
-      <td style="padding:8px 12px;text-align:center;font-size:12px;color:var(--text2)">${d.type||'Store Front'}</td>
-      <td style="padding:8px 12px;text-align:center">
+      <td style="padding:6px 8px;text-align:center">
         <input type="number" value="${d.budget||62}" min="1" max="300"
-          style="width:70px;padding:4px 8px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:inherit;text-align:center;font-weight:600"
+          style="width:56px;padding:3px 6px;border:1px solid var(--border2);border-radius:var(--r);font-size:12px;font-family:inherit;text-align:center;font-weight:600"
           onchange="setLocOverride('${loc}','budget',parseInt(this.value)||62)">
       </td>
-      <td style="padding:8px 12px;text-align:center">
+      <td style="padding:6px 8px;text-align:center">
         <select onchange="setLocOverride('${loc}','is_2me',this.value==='2ME');setLocOverride('${loc}','budget',this.value==='2ME'?120:62)"
-          style="padding:4px 8px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:inherit;font-weight:600;color:${d.is_2me?'var(--pu)':'var(--text)'}">
+          style="padding:3px 6px;border:1px solid var(--border2);border-radius:var(--r);font-size:12px;font-family:inherit;font-weight:600;color:${d.is_2me?'var(--pu)':'var(--text)'}">
           <option value="1ME" ${!d.is_2me?'selected':''}>1ME</option>
           <option value="2ME" ${d.is_2me?'selected':''}>2ME</option>
         </select>
       </td>
-      <td style="padding:8px 12px;text-align:center;font-size:11px;color:${hasOverride?'var(--mg)':'var(--text3)'}">
-        ${hasOverride ? 'Custom' : 'Default'}
+      ${rankCells}
+      <td style="padding:6px 8px;text-align:center;font-size:10px;color:${hasAny?'var(--mg)':'var(--text3)'}">
+        ${hasAny ? 'Custom' : 'Default'}
       </td>
     </tr>`;
   });
 
-  html += `</tbody></table></div>`;
+  html += `</tbody></table></div>
+  <div style="padding:10px 16px;background:var(--surface2);font-size:11px;color:var(--text2);border-top:1px solid var(--border)">
+    <b style="color:#7C3AED">Purple ranks (1–4)</b> = manager required on schedule that day &nbsp;|&nbsp; 
+    <b style="color:var(--text3)">Gray ranks (5–7)</b> = manager optional &nbsp;|&nbsp;
+    Approved absences can be set per day in the Location Detail view (click any location → View)
+  </div>`;
   el.innerHTML = html;
 }
 
