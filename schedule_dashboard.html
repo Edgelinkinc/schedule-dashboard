@@ -216,6 +216,7 @@ tr:hover td{background:var(--bg)}
     <div class="ni" onclick="nav('tracker')"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M1 11l4-4 3 3 3-4 4 3V14H1v-3z"/></svg><span>Week-over-Week</span></div>
     <div class="ni admin-nav" onclick="nav('monthly')" id="ni-monthly"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h12v12H2V2zm1 3v8h10V5H3zm2-3V1h1v1H5zm5 0V1h1v1h-1zM3 7h2v2H3V7zm3 0h2v2H6V7zm3 0h2v2H9V7zm-6 3h2v2H3v-2zm3 0h2v2H6v-2zm3 0h2v2H9v-2z"/></svg><span>Monthly</span></div>
     <div class="ns admin-nav" id="ns-data">Data</div>
+    <div class="ni admin-nav" onclick="nav('locadmin')"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a4 4 0 0 1 4 4c0 3-4 9-4 9S4 8 4 5a4 4 0 0 1 4-4zm0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/><path d="M13 9l1.5 1.5L11 14l-2-2 1.5-1.5 .5.5z" fill="currentColor"/></svg><span>Location Admin</span></div>
     <div class="ni admin-nav" onclick="nav('personnel')"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M6 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm-5 6s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1H1zm11-9a1 1 0 0 1 1 1v1h1a1 1 0 1 1 0 2h-1v1a1 1 0 1 1-2 0v-1h-1a1 1 0 1 1 0-2h1V6a1 1 0 0 1 1-1z"/></svg><span>Personnel</span></div>
     <div class="ni admin-nav" onclick="nav('upload')"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1l4 4H9v5H7V5H4L8 1zM2 12h12v2H2v-2z"/></svg><span>Upload Schedule</span></div>
     <div class="ni admin-nav" onclick="nav('setup')"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 2a5 5 0 1 1 0 10A5 5 0 0 1 8 3zm0 2a1 1 0 0 0-1 1v2.586l-1.707 1.707a1 1 0 1 0 1.414 1.414L8.707 9.707A1 1 0 0 0 9 9V6a1 1 0 0 0-1-1z"/></svg><span>Setup</span></div>
@@ -325,6 +326,21 @@ tr:hover td{background:var(--bg)}
         <div id="sync-status" style="margin-top:10px;font-size:12px;color:var(--text2)"></div>
         <div style="background:var(--pu-lt);border-radius:var(--r);padding:10px 14px;margin-top:12px;font-size:12px;color:var(--text2);line-height:1.6">
           💡 <strong style="color:var(--pu)">How to share with your team:</strong> Click <em>Export Data File</em> after uploading a schedule → send the downloaded <code>.json</code> file via email or Teams → recipients click <em>Import Data File</em> to load it instantly.
+        </div>
+      </div>
+    </div>
+
+    <div id="page-locadmin" class="page">
+      <div class="card">
+        <div class="ch" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+          <h3>Location Settings</h3>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <span style="font-size:12px;color:var(--text2)">Changes save instantly and affect compliance scoring</span>
+            <button class="btn sm" id="locadmin-reset-btn" onclick="resetLocOverrides()" style="color:var(--red);font-size:11px">Reset to defaults</button>
+          </div>
+        </div>
+        <div class="cb" style="padding:0">
+          <div id="locadmin-table"></div>
         </div>
       </div>
     </div>
@@ -1037,7 +1053,7 @@ function parseXLSXSchedule(wb) {
 function parseFile(wb) { return parseXLSXSchedule(wb); }
 
 function getViols(shift,day,locName,all){
-  const info=LOC_DATA.locations[locName];if(!info)return[];
+  const info=getLocData(locName);if(!info)return[];
   const viols=[];const dh=info.hours[day];
   const oT=dh?pT(dh.open):null,cT=dh?pT(dh.close):null;
   // CT locations require 4h minimum; all others require 3h minimum
@@ -1080,7 +1096,7 @@ function scoreLoc(locName,ls,weekLabel){
     }
     const shifts=ls?ls.days[day]:[];
     if(!shifts||!shifts.length){
-      if(LOC_DATA.locations[locName]?.hours[day]){total++;types['NO COVERAGE']=(types['NO COVERAGE']||0)+1;}return;
+      if(getLocData(locName)?.hours[day]){total++;types['NO COVERAGE']=(types['NO COVERAGE']||0)+1;}return;
     }
     const seen=new Set();
     shifts.forEach(sh=>{
@@ -1294,7 +1310,7 @@ async function finishLoad(res){
 
 function clearAll(){if(confirm('Clear all saved schedule history?')){weeks={};curWk=null;localStorage.removeItem('sw');renderAll();nav(isAdminUnlocked?'upload':'overview');}}
 
-const PTITLES={upload:'Upload Schedule',overview:'Overview',locations:'All Locations','loc-detail':'Location Detail',managers:'Manager Reports',coaches:'Coach Dashboard',conflicts:'Employee Conflicts',tracker:'Week-over-Week Tracker',setup:'SharePoint Setup',understaffed:'Understaffed Locations',monthly:'Monthly Overview',personnel:'Personnel Directory'};
+const PTITLES={upload:'Upload Schedule',overview:'Overview',locations:'All Locations','loc-detail':'Location Detail',managers:'Manager Reports',coaches:'Coach Dashboard',conflicts:'Employee Conflicts',tracker:'Week-over-Week Tracker',setup:'SharePoint Setup',understaffed:'Understaffed Locations',monthly:'Monthly Overview',personnel:'Personnel Directory',locadmin:'Location Admin'};
 
 // ── PIN Access Control ────────────────────────────────────────────────────────
 const ADMIN_PIN = '3833';
@@ -1456,7 +1472,7 @@ document.addEventListener('click', e => {
 
 function nav(page){
   // Block protected pages for non-admins — show PIN modal instead
-  if(!isAdminUnlocked && ['upload','personnel','setup','monthly','understaffed'].includes(page)){
+  if(!isAdminUnlocked && ['upload','personnel','setup','monthly','understaffed','locadmin'].includes(page)){
     showPinModal(); return;
   }
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
@@ -1477,6 +1493,7 @@ function nav(page){
   if(page==='understaffed'){populatePageWkSelect('us-wk');renderUnderstaffed();}
   if(page==='tracker')renderTracker();
   if(page==='personnel')renderPersonnel();
+  if(page==='locadmin')renderLocAdmin();
   }
 
 
@@ -1697,7 +1714,7 @@ function renderOverview(){
 
 // ── Understaffing checker ─────────────────────────────────────────────────────
 function getUnderstaffedIssues(locName, ls, weekLabel) {
-  const info = LOC_DATA.locations[locName];
+  const info = getLocData(locName);
   if (!info || !ls) return [];
   const issues = [];
   const sun2 = (locName === 'MA-HOLYOKE');
@@ -2170,7 +2187,7 @@ function showLoc(locName){
   const activePage=document.querySelector('.page.active');
   if(activePage)locDetailFrom=activePage.id.replace('page-','');
   const w=getActiveWk();if(!w)return;
-  const info=LOC_DATA.locations[locName];const ranks=LOC_DATA.ranks[locName]||{};
+  const info=getLocData(locName);const ranks=LOC_DATA.ranks[locName]||{};
   const ls=w.sched[locName];const sc=scoreLoc(locName,ls,w.label);
   const cols=7;
   let html=`<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;gap:16px;flex-wrap:wrap">
@@ -2660,6 +2677,114 @@ function getManager(locName, weekLabel){
 }
 
 // ── Personnel tab render ──────────────────────────────────────────────────────
+// ── Location Admin ────────────────────────────────────────────────────────────
+// Overrides stored in localStorage — merged on top of LOC_DATA at runtime
+let locOverrides = {};
+
+function loadLocOverrides(){
+  try { locOverrides = JSON.parse(localStorage.getItem('loc_overrides') || '{}'); } catch(e){ locOverrides={}; }
+}
+
+function saveLocOverrides(){
+  localStorage.setItem('loc_overrides', JSON.stringify(locOverrides));
+}
+
+function resetLocOverrides(){
+  if(!confirm('Reset all location settings to defaults?')) return;
+  locOverrides = {};
+  saveLocOverrides();
+  renderLocAdmin();
+  showToast('Location settings reset to defaults');
+}
+
+// Get effective location data — merges overrides on top of LOC_DATA
+function getLocData(locName){
+  const base = LOC_DATA.locations[locName] || {};
+  const ov = locOverrides[locName] || {};
+  return { ...base, ...ov };
+}
+
+function setLocOverride(locName, field, value){
+  if(!locOverrides[locName]) locOverrides[locName] = {};
+  // Only store if different from base LOC_DATA
+  const base = LOC_DATA.locations[locName] || {};
+  if(String(base[field]) === String(value)){
+    delete locOverrides[locName][field];
+    if(!Object.keys(locOverrides[locName]).length) delete locOverrides[locName];
+  } else {
+    locOverrides[locName][field] = value;
+  }
+  saveLocOverrides();
+  showToast(`${locName} updated ✓`);
+}
+
+function renderLocAdmin(){
+  const el = document.getElementById('locadmin-table');
+  if(!el) return;
+  const locs = Object.keys(LOC_DATA.locations).sort();
+  const overrideCount = Object.keys(locOverrides).length;
+
+  let html = `<div style="padding:12px 20px;background:var(--surface2);font-size:12px;color:var(--text2);border-bottom:1px solid var(--border)">
+    ${overrideCount > 0 ? `<span style="color:var(--mg);font-weight:600">⚡ ${overrideCount} location${overrideCount!==1?'s':''} with custom settings</span> · ` : ''}
+    Edit budget hours, ME type, and manager name. Changes apply immediately to compliance scoring.
+  </div>
+  <div style="overflow-x:auto">
+  <table style="width:100%;border-collapse:collapse;font-size:13px">
+    <thead>
+      <tr style="background:var(--pu-lt)">
+        <th style="padding:10px 16px;text-align:left;color:var(--pu);font-weight:600;white-space:nowrap">Location</th>
+        <th style="padding:10px 12px;text-align:left;color:var(--pu);font-weight:600">Coach</th>
+        <th style="padding:10px 12px;text-align:left;color:var(--pu);font-weight:600">Manager</th>
+        <th style="padding:10px 12px;text-align:center;color:var(--pu);font-weight:600">Type</th>
+        <th style="padding:10px 12px;text-align:center;color:var(--pu);font-weight:600">Budget Hrs</th>
+        <th style="padding:10px 12px;text-align:center;color:var(--pu);font-weight:600">1ME / 2ME</th>
+        <th style="padding:10px 12px;text-align:center;color:var(--pu);font-weight:600">Modified</th>
+      </tr>
+    </thead>
+    <tbody>`;
+
+  locs.forEach((loc, i) => {
+    const d = getLocData(loc);
+    const ov = locOverrides[loc] || {};
+    const hasOverride = Object.keys(ov).length > 0;
+    const bg = i % 2 === 0 ? '' : 'background:var(--surface2)';
+    const ovStyle = hasOverride ? 'background:#FFF0F7;' : bg;
+
+    html += `<tr style="${ovStyle};border-bottom:1px solid var(--border)">
+      <td style="padding:8px 16px;font-weight:600;color:var(--pu);white-space:nowrap">
+        ${hasOverride ? '<span style="color:var(--mg);margin-right:4px" title="Custom settings">⚡</span>' : ''}
+        ${loc}
+      </td>
+      <td style="padding:8px 12px;color:var(--text2);font-size:12px">${d.coach||'TBD'}</td>
+      <td style="padding:8px 12px">
+        <input type="text" value="${d.manager||''}"
+          style="width:140px;padding:4px 8px;border:1px solid var(--border2);border-radius:var(--r);font-size:12px;font-family:inherit"
+          onchange="setLocOverride('${loc}','manager',this.value)"
+          placeholder="Manager name">
+      </td>
+      <td style="padding:8px 12px;text-align:center;font-size:12px;color:var(--text2)">${d.type||'Store Front'}</td>
+      <td style="padding:8px 12px;text-align:center">
+        <input type="number" value="${d.budget||62}" min="1" max="300"
+          style="width:70px;padding:4px 8px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:inherit;text-align:center;font-weight:600"
+          onchange="setLocOverride('${loc}','budget',parseInt(this.value)||62)">
+      </td>
+      <td style="padding:8px 12px;text-align:center">
+        <select onchange="setLocOverride('${loc}','is_2me',this.value==='2ME');setLocOverride('${loc}','budget',this.value==='2ME'?120:62)"
+          style="padding:4px 8px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:inherit;font-weight:600;color:${d.is_2me?'var(--pu)':'var(--text)'}">
+          <option value="1ME" ${!d.is_2me?'selected':''}>1ME</option>
+          <option value="2ME" ${d.is_2me?'selected':''}>2ME</option>
+        </select>
+      </td>
+      <td style="padding:8px 12px;text-align:center;font-size:11px;color:${hasOverride?'var(--mg)':'var(--text3)'}">
+        ${hasOverride ? 'Custom' : 'Default'}
+      </td>
+    </tr>`;
+  });
+
+  html += `</tbody></table></div>`;
+  el.innerHTML = html;
+}
+
 function renderPersonnel(){
   const search = (document.getElementById('pers-search')?.value || '').toLowerCase();
   const tbody = document.getElementById('pers-tbody');
@@ -2878,6 +3003,7 @@ async function init(){
   try {
     loadConfig();
     loadPersonnelOverrides();
+    loadLocOverrides();
     await initMsal();
     await loadW();
     renderAll();
