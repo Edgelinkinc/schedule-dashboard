@@ -596,33 +596,44 @@ let currentUser = null;
 
 // ── MSAL login ────────────────────────────────────────────────────────────────
 async function initMsal() {
-  if (!SP_CONFIG.clientId || !SP_CONFIG.tenantId) return; // not configured yet
-  if (typeof msal === 'undefined') return;
-  msalApp = new msal.PublicClientApplication({
-    auth: {
-      clientId: SP_CONFIG.clientId,
-      authority: `https://login.microsoftonline.com/${SP_CONFIG.tenantId}`,
-      redirectUri: window.location.origin + window.location.pathname
-    },
-    cache: { cacheLocation: 'sessionStorage' }
-  });
-  await msalApp.initialize();
-  // Handle redirect response
-  const resp = await msalApp.handleRedirectPromise();
-  if (resp) graphToken = resp.accessToken;
-  // Check if already signed in
-  const accounts = msalApp.getAllAccounts();
-  if (accounts.length) {
-    currentUser = accounts[0];
-    try {
-      const tr = await msalApp.acquireTokenSilent({
-        scopes: ['Files.ReadWrite', 'Sites.ReadWrite.All', 'User.Read'],
-        account: currentUser
-      });
-      graphToken = tr.accessToken;
-    } catch(e) { graphToken = null; }
+  if (!SP_CONFIG.clientId || !SP_CONFIG.tenantId) {
+    renderAuthBar(); // still render so it doesn't stay on "Loading..."
+    return;
   }
-  renderAuthBar();
+  if (typeof msal === 'undefined') {
+    console.warn('MSAL library not loaded');
+    renderAuthBar();
+    return;
+  }
+  try {
+    msalApp = new msal.PublicClientApplication({
+      auth: {
+        clientId: SP_CONFIG.clientId,
+        authority: `https://login.microsoftonline.com/${SP_CONFIG.tenantId}`,
+        redirectUri: 'https://edgelinkinc.github.io/schedule-dashboard/schedule_dashboard.html'
+      },
+      cache: { cacheLocation: 'sessionStorage' }
+    });
+    await msalApp.initialize();
+    // Handle redirect response
+    const resp = await msalApp.handleRedirectPromise();
+    if (resp) graphToken = resp.accessToken;
+    // Check if already signed in
+    const accounts = msalApp.getAllAccounts();
+    if (accounts.length) {
+      currentUser = accounts[0];
+      try {
+        const tr = await msalApp.acquireTokenSilent({
+          scopes: ['Files.ReadWrite', 'Sites.ReadWrite.All', 'User.Read'],
+          account: currentUser
+        });
+        graphToken = tr.accessToken;
+      } catch(e) { graphToken = null; }
+    }
+  } catch(e) {
+    console.error('MSAL init error:', e);
+  }
+  renderAuthBar(); // always render auth bar regardless of outcome
 }
 
 async function signIn() {
@@ -2806,8 +2817,15 @@ function saveConfig(){
   if(!clientId||!tenantId||!siteUrl){alert('Please fill in all three fields.');return;}
   SP_CONFIG.clientId=clientId; SP_CONFIG.tenantId=tenantId; SP_CONFIG.siteUrl=siteUrl;
   localStorage.setItem('sp_config',JSON.stringify({clientId,tenantId,siteUrl}));
-  document.getElementById('cfg-status').innerHTML='<span class="badge ok">Config saved! Reload the page then sign in with Microsoft.</span>';
-  setTimeout(()=>location.reload(),2000);
+  document.getElementById('cfg-status').innerHTML='<span class="badge ok">✓ Config saved! Connecting to Microsoft...</span>';
+  // Initialize MSAL immediately — no page reload needed
+  initMsal().then(()=>{
+    renderAuthBar();
+    document.getElementById('cfg-status').innerHTML='<span class="badge ok">✓ Connected! Click "Sign in with Microsoft" in the sidebar.</span>';
+  }).catch(e=>{
+    document.getElementById('cfg-status').innerHTML='<span class="badge err">Error connecting — check your Client ID and Tenant ID.</span>';
+    console.error('MSAL init error after config save:', e);
+  });
 }
 async function init(){
   try {
