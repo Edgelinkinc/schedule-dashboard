@@ -629,8 +629,14 @@ async function ghGet(){
     if(r.status === 404) return { content: null, sha: null };
     if(!r.ok) return null;
     const data = await r.json();
-    const content = JSON.parse(atob(data.content.replace(/[\r\n]/g, '')));
-    return { content, sha: data.sha };
+    const sha = data.sha;
+    // Use the download_url to fetch raw content directly — avoids base64 decode issues with large files
+    const rawR = await fetch(data.download_url, {
+      headers: { Authorization: `token ${GH_CONFIG.token}` }
+    });
+    if(!rawR.ok) return null;
+    const content = await rawR.json();
+    return { content, sha };
   } catch(e) { console.error('GH read error:', e); return null; }
 }
 
