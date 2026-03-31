@@ -199,7 +199,6 @@ tr:hover td{background:var(--bg)}
   .mobile-nav,.mobile-more-drawer{display:none!important}
 }
 </style>
-<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
 </head>
 <body>
 <div class="app">
@@ -283,45 +282,36 @@ tr:hover td{background:var(--bg)}
 
     <div id="page-setup" class="page">
   <div class="card" style="max-width:720px">
-    <div class="ch"><h3>SharePoint connection setup</h3></div>
+    <div class="ch"><h3>GitHub Sync Setup</h3></div>
     <div class="cb">
-      <p style="font-size:13px;color:var(--text2);margin-bottom:20px;line-height:1.7">Connect this dashboard to SharePoint so your data is shared across your team and saved permanently. Follow these steps once — takes about 10 minutes.</p>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:20px;line-height:1.7">Connect the dashboard to your GitHub repository so schedule data syncs across all devices automatically. Takes about 3 minutes — do this once per device.</p>
 
       <div style="counter-reset:step">
         <div class="step-block">
           <div class="step-num">1</div>
           <div class="step-body">
-            <h4>Register the app in Azure</h4>
-            <p>Go to <a href="https://portal.azure.com" target="_blank" style="color:var(--blue)">portal.azure.com</a> &rarr; <strong>Azure Active Directory</strong> &rarr; <strong>App registrations</strong> &rarr; <strong>New registration</strong></p>
+            <h4>Create a GitHub Personal Access Token</h4>
+            <p>Go to <a href="https://github.com/settings/tokens/new" target="_blank" style="color:var(--mg)">github.com/settings/tokens/new</a></p>
             <ul style="margin:8px 0 8px 20px;font-size:13px;color:var(--text2);line-height:1.8">
-              <li>Name: <code>Schedule Dashboard</code></li>
-              <li>Supported account types: <strong>Accounts in this org only</strong></li>
-              <li>Redirect URI: <strong>Single-page application (SPA)</strong> &rarr; paste your GitHub Pages URL</li>
+              <li><strong>Note:</strong> EdgeLink Schedule Dashboard</li>
+              <li><strong>Expiration:</strong> No expiration (or 1 year)</li>
+              <li><strong>Scopes:</strong> Check <code>repo</code> (full repository access)</li>
             </ul>
-            <p>Click <strong>Register</strong>. Copy the <strong>Application (client) ID</strong> and <strong>Directory (tenant) ID</strong> shown on the overview page.</p>
+            <p>Click <strong>Generate token</strong> and <strong>copy it immediately</strong> — you won't see it again.</p>
           </div>
         </div>
         <div class="step-block">
           <div class="step-num">2</div>
           <div class="step-body">
-            <h4>Add API permissions</h4>
-            <p>In your new app &rarr; <strong>API permissions</strong> &rarr; <strong>Add a permission</strong> &rarr; <strong>Microsoft Graph</strong> &rarr; <strong>Delegated permissions</strong></p>
-            <p>Add these permissions:</p>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0"><span class="badge info">Files.ReadWrite</span><span class="badge info">Sites.ReadWrite.All</span><span class="badge info">User.Read</span></div>
-            <p>Then click <strong>Grant admin consent</strong>.</p>
-          </div>
-        </div>
-        <div class="step-block">
-          <div class="step-num">3</div>
-          <div class="step-body">
-            <h4>Enter your details below</h4>
+            <h4>Enter your token below</h4>
             <div style="display:grid;gap:10px;margin-top:12px">
-              <div><label style="font-size:12px;font-weight:500;color:var(--text2);display:block;margin-bottom:4px">Client ID (Application ID)</label><input id="cfg-client" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" style="width:100%;padding:8px 12px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:'DM Mono',monospace"></div>
-              <div><label style="font-size:12px;font-weight:500;color:var(--text2);display:block;margin-bottom:4px">Tenant ID (Directory ID)</label><input id="cfg-tenant" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" style="width:100%;padding:8px 12px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:'DM Mono',monospace"></div>
-              <div><label style="font-size:12px;font-weight:500;color:var(--text2);display:block;margin-bottom:4px">SharePoint Site URL</label><input id="cfg-site" placeholder="https://yourcompany.sharepoint.com/sites/Scheduling" style="width:100%;padding:8px 12px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px"></div>
+              <div>
+                <label style="font-size:12px;font-weight:500;color:var(--text2);display:block;margin-bottom:4px">GitHub Personal Access Token</label>
+                <input id="cfg-token" type="password" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" style="width:100%;padding:8px 12px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:'DM Mono',monospace">
+                <p style="font-size:11px;color:var(--text3);margin-top:4px">Stored only in your browser — never sent anywhere except GitHub's API.</p>
+              </div>
             </div>
             <button class="btn primary" style="margin-top:16px" onclick="saveConfig()">Save &amp; Connect</button>
-            <p style="font-size:12px;color:var(--text3);margin-top:8px">These values are saved in your browser and injected into the app. You only do this once per device.</p>
           </div>
         </div>
       </div>
@@ -580,180 +570,136 @@ tr:hover td{background:var(--bg)}
 
 // ── SharePoint / Graph API config ─────────────────────────────────────────────
 // Fill these in after Azure App Registration (see SETUP.md)
-const SP_CONFIG = {
-  clientId:    '',        // Azure App Registration client ID
-  tenantId:    '',        // Your Azure tenant ID
-  siteUrl:     '',        // e.g. https://yourcompany.sharepoint.com/sites/Scheduling
-  driveId:     '',        // OneDrive/SharePoint drive ID (auto-filled after login)
-  fileName:    'schedule_data.json'  // file stored in SharePoint
+// ── GitHub Sync Configuration ────────────────────────────────────────────────
+// Data is stored as a JSON file in your GitHub repository.
+// No external auth library needed — uses GitHub Personal Access Token.
+const GH_CONFIG = {
+  token:  '',   // GitHub Personal Access Token (saved in localStorage)
+  owner:  'edgelinkinc',
+  repo:   'schedule-dashboard',
+  file:   'schedule_data.json',
+  branch: 'main'
 };
 
-let msalApp = null;
-let graphToken = null;
-let spDriveId = null;
-let spFileId = null;
-let currentUser = null;
-
-// ── MSAL login ────────────────────────────────────────────────────────────────
-async function initMsal() {
-  if (!SP_CONFIG.clientId || !SP_CONFIG.tenantId) {
-    renderAuthBar(); // still render so it doesn't stay on "Loading..."
-    return;
-  }
-  if (typeof msal === 'undefined') {
-    console.warn('MSAL library not loaded');
-    renderAuthBar();
-    return;
-  }
+function loadGHConfig(){
   try {
-    msalApp = new msal.PublicClientApplication({
-      auth: {
-        clientId: SP_CONFIG.clientId,
-        authority: `https://login.microsoftonline.com/${SP_CONFIG.tenantId}`,
-        redirectUri: 'https://edgelinkinc.github.io/schedule-dashboard/schedule_dashboard.html'
-      },
-      cache: { cacheLocation: 'sessionStorage' }
-    });
-    await msalApp.initialize();
-    // Handle redirect response
-    const resp = await msalApp.handleRedirectPromise();
-    if (resp) graphToken = resp.accessToken;
-    // Check if already signed in
-    const accounts = msalApp.getAllAccounts();
-    if (accounts.length) {
-      currentUser = accounts[0];
-      try {
-        const tr = await msalApp.acquireTokenSilent({
-          scopes: ['Files.ReadWrite', 'Sites.ReadWrite.All', 'User.Read'],
-          account: currentUser
-        });
-        graphToken = tr.accessToken;
-      } catch(e) { graphToken = null; }
-    }
-  } catch(e) {
-    console.error('MSAL init error:', e);
-  }
-  renderAuthBar(); // always render auth bar regardless of outcome
+    const saved = JSON.parse(localStorage.getItem('gh_config') || '{}');
+    if(saved.token) GH_CONFIG.token = saved.token;
+    if(saved.owner) GH_CONFIG.owner = saved.owner;
+    if(saved.repo)  GH_CONFIG.repo  = saved.repo;
+  } catch(e) {}
 }
 
-async function signIn() {
-  if (!msalApp) { alert('SharePoint not configured yet. See setup instructions.'); return; }
-  await msalApp.loginRedirect({
-    scopes: ['Files.ReadWrite', 'Sites.ReadWrite.All', 'User.Read']
-  });
+function saveGHConfig(){
+  localStorage.setItem('gh_config', JSON.stringify({
+    token: GH_CONFIG.token,
+    owner: GH_CONFIG.owner,
+    repo:  GH_CONFIG.repo
+  }));
 }
 
-async function signOut() {
-  if (!msalApp) return;
-  await msalApp.logoutRedirect();
-}
-
-function renderAuthBar() {
+function renderAuthBar(){
   const el = document.getElementById('auth-bar');
-  if (!SP_CONFIG.clientId) {
-    el.innerHTML = `<span style="font-size:12px;color:rgba(255,255,255,.4)">SharePoint: not configured</span>
-      <button class="nb" onclick="nav('setup')">Setup &#8594;</button>`;
-    return;
-  }
-  if (currentUser) {
-    el.innerHTML = `<span style="font-size:12px;color:rgba(255,255,255,.7)">${currentUser.username}</span>
-      <button class="nb" onclick="signOut()">Sign out</button>`;
+  if(!el) return;
+  if(GH_CONFIG.token){
+    el.innerHTML = `<span style="font-size:11px;color:rgba(100,255,150,.8)">✓ Sync connected</span>`;
   } else {
-    el.innerHTML = `<button class="nb" onclick="signIn()">Sign in with Microsoft</button>`;
+    el.innerHTML = `<span style="font-size:11px;color:rgba(255,255,255,.35)">Sync: not configured</span>`;
   }
 }
 
-// ── Graph API helpers ─────────────────────────────────────────────────────────
-async function graphGet(url) {
-  const r = await fetch('https://graph.microsoft.com/v1.0' + url, {
-    headers: { Authorization: 'Bearer ' + graphToken }
-  });
-  if (!r.ok) throw new Error(await r.text());
-  return r.json();
+async function initMsal(){
+  // No MSAL needed — using GitHub token auth instead
+  loadGHConfig();
+  renderAuthBar();
 }
 
-async function graphPut(url, body) {
-  const r = await fetch('https://graph.microsoft.com/v1.0' + url, {
-    method: 'PUT',
-    headers: { Authorization: 'Bearer ' + graphToken, 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
-  if (!r.ok) throw new Error(await r.text());
-  return r.json();
-}
-
-// ── Resolve SharePoint drive and file IDs ─────────────────────────────────────
-async function resolveSP() {
-  if (spDriveId && spFileId) return true;
-  if (!graphToken) return false;
+// ── GitHub API helpers ────────────────────────────────────────────────────────
+async function ghGet(){
+  if(!GH_CONFIG.token) return null;
   try {
-    // Get site drive
-    const siteResp = await graphGet(`/sites/${new URL(SP_CONFIG.siteUrl).hostname}:/${new URL(SP_CONFIG.siteUrl).pathname}`);
-    const siteId = siteResp.id;
-    const driveResp = await graphGet(`/sites/${siteId}/drive`);
-    spDriveId = driveResp.id;
-    // Try to find existing file
-    try {
-      const fileResp = await graphGet(`/drives/${spDriveId}/root:/${SP_CONFIG.fileName}`);
-      spFileId = fileResp.id;
-    } catch(e) { spFileId = null; } // file doesn't exist yet — will be created on save
-    return true;
-  } catch(e) { console.error('SP resolve error:', e); return false; }
-}
-
-// ── Load data from SharePoint ─────────────────────────────────────────────────
-async function loadFromSP() {
-  if (!graphToken) return false;
-  const ok = await resolveSP();
-  if (!ok || !spFileId) return false;
-  try {
-    const r = await fetch(`https://graph.microsoft.com/v1.0/drives/${spDriveId}/items/${spFileId}/content`, {
-      headers: { Authorization: 'Bearer ' + graphToken }
-    });
-    if (!r.ok) return false;
+    const r = await fetch(
+      `https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/contents/${GH_CONFIG.file}`,
+      { headers: { Authorization: `token ${GH_CONFIG.token}`, Accept: 'application/vnd.github.v3+json' } }
+    );
+    if(r.status === 404) return { content: null, sha: null };
+    if(!r.ok) return null;
     const data = await r.json();
-    // Deserialize weeks
+    const content = JSON.parse(atob(data.content.replace(/[\r\n]/g, '')));
+    return { content, sha: data.sha };
+  } catch(e) { console.error('GH read error:', e); return null; }
+}
+
+async function ghPut(payload, sha){
+  if(!GH_CONFIG.token) return false;
+  try {
+    const body = {
+      message: `Update schedule data ${new Date().toISOString().slice(0,10)}`,
+      content: btoa(unescape(encodeURIComponent(JSON.stringify(payload)))),
+      branch: GH_CONFIG.branch
+    };
+    if(sha) body.sha = sha;
+    const r = await fetch(
+      `https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/contents/${GH_CONFIG.file}`,
+      {
+        method: 'PUT',
+        headers: { Authorization: `token ${GH_CONFIG.token}`, Accept: 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      }
+    );
+    return r.ok;
+  } catch(e) { console.error('GH write error:', e); return false; }
+}
+
+// ── Load data from GitHub ─────────────────────────────────────────────────────
+async function loadFromSP(){
+  if(!GH_CONFIG.token) return false;
+  const result = await ghGet();
+  if(!result || !result.content) return false;
+  try {
+    const data = result.content;
     weeks = {};
     (data.weeks || []).forEach(w => {
       const sc = deSched(w.sched);
       weeks[w.key] = { key: w.key, label: w.label, sched: sc, conflicts: findConflicts(sc) };
     });
-    if (Object.keys(weeks).length) curWk = Object.keys(weeks)[Object.keys(weeks).length - 1];
-    showToast('Loaded data from SharePoint');
+    if(Object.keys(weeks).length) curWk = Object.keys(weeks)[Object.keys(weeks).length - 1];
+    showToast('Loaded data from GitHub ✓');
     return true;
-  } catch(e) { console.error('SP load error:', e); return false; }
+  } catch(e) { console.error('GH load parse error:', e); return false; }
 }
 
-// ── Save data to SharePoint ───────────────────────────────────────────────────
-async function saveToSP() {
-  if (!graphToken) { saveLocal(); return; }
-  const ok = await resolveSP();
-  if (!ok) { saveLocal(); return; }
+// ── Save data to GitHub ───────────────────────────────────────────────────────
+let _ghSha = null; // track current file SHA for updates
+
+async function saveToSP(){
+  saveLocal(); // always save locally first
+  if(!GH_CONFIG.token){ return; }
   try {
-    const payload = JSON.stringify({
+    // Get current SHA if we don't have it
+    if(!_ghSha){
+      const existing = await ghGet();
+      if(existing) _ghSha = existing.sha;
+    }
+    const payload = {
       weeks: Object.values(weeks).map(w => ({ key: w.key, label: w.label, sched: serSched(w.sched) })),
-      lastUpdated: new Date().toISOString(),
-      updatedBy: currentUser?.username || 'unknown'
-    });
-    const blob = new Blob([payload], { type: 'application/json' });
-    const url = spFileId
-      ? `https://graph.microsoft.com/v1.0/drives/${spDriveId}/items/${spFileId}/content`
-      : `https://graph.microsoft.com/v1.0/drives/${spDriveId}/root:/${SP_CONFIG.fileName}:/content`;
-    const r = await fetch(url, {
-      method: 'PUT',
-      headers: { Authorization: 'Bearer ' + graphToken, 'Content-Type': 'application/json' },
-      body: blob
-    });
-    if (!r.ok) throw new Error(await r.text());
-    const saved = await r.json();
-    spFileId = saved.id;
-    saveLocal(); // also keep local backup
-    showToast('Saved to SharePoint');
-  } catch(e) { console.error('SP save error:', e); saveLocal(); showToast('Saved locally (SP error)', true); }
+      personnel: JSON.parse(localStorage.getItem('sp_personnel_v2') || '{}'),
+      lastUpdated: new Date().toISOString()
+    };
+    const ok = await ghPut(payload, _ghSha);
+    if(ok){
+      // Re-fetch SHA for next save
+      const updated = await ghGet();
+      if(updated) _ghSha = updated.sha;
+      showToast('Saved & synced to GitHub ✓');
+    } else {
+      showToast('Saved locally — sync failed', true);
+    }
+  } catch(e) { console.error('Save to GH error:', e); showToast('Saved locally — sync failed', true); }
 }
 
 // ── Local storage fallback ────────────────────────────────────────────────────
-function saveLocal() {
+function saveLocal(){
   try { localStorage.setItem('sw', JSON.stringify(Object.values(weeks).map(w => ({ key: w.key, label: w.label, sched: serSched(w.sched) })))); } catch(e) {}
 }
 
@@ -2800,32 +2746,31 @@ dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag');if
 // Load saved config from localStorage
 function loadConfig(){
   try{
-    const c=JSON.parse(localStorage.getItem('sp_config')||'{}');
-    if(c.clientId) SP_CONFIG.clientId=c.clientId;
-    if(c.tenantId) SP_CONFIG.tenantId=c.tenantId;
-    if(c.siteUrl)  SP_CONFIG.siteUrl=c.siteUrl;
-    // Pre-fill setup form
-    if(document.getElementById('cfg-client'))document.getElementById('cfg-client').value=c.clientId||'';
-    if(document.getElementById('cfg-tenant'))document.getElementById('cfg-tenant').value=c.tenantId||'';
-    if(document.getElementById('cfg-site'))document.getElementById('cfg-site').value=c.siteUrl||'';
+    loadGHConfig();
+    // Pre-fill setup form if on setup page
+    const tokenField = document.getElementById('cfg-token');
+    if(tokenField && GH_CONFIG.token) tokenField.value = GH_CONFIG.token;
   }catch(e){}
 }
-function saveConfig(){
-  const clientId=document.getElementById('cfg-client').value.trim();
-  const tenantId=document.getElementById('cfg-tenant').value.trim();
-  const siteUrl=document.getElementById('cfg-site').value.trim();
-  if(!clientId||!tenantId||!siteUrl){alert('Please fill in all three fields.');return;}
-  SP_CONFIG.clientId=clientId; SP_CONFIG.tenantId=tenantId; SP_CONFIG.siteUrl=siteUrl;
-  localStorage.setItem('sp_config',JSON.stringify({clientId,tenantId,siteUrl}));
-  document.getElementById('cfg-status').innerHTML='<span class="badge ok">✓ Config saved! Connecting to Microsoft...</span>';
-  // Initialize MSAL immediately — no page reload needed
-  initMsal().then(()=>{
-    renderAuthBar();
-    document.getElementById('cfg-status').innerHTML='<span class="badge ok">✓ Connected! Click "Sign in with Microsoft" in the sidebar.</span>';
-  }).catch(e=>{
-    document.getElementById('cfg-status').innerHTML='<span class="badge err">Error connecting — check your Client ID and Tenant ID.</span>';
-    console.error('MSAL init error after config save:', e);
-  });
+async function saveConfig(){
+  const token = document.getElementById('cfg-token')?.value.trim();
+  if(!token){ alert('Please enter your GitHub Personal Access Token.'); return; }
+  GH_CONFIG.token = token;
+  saveGHConfig();
+  document.getElementById('cfg-status').innerHTML = '<span class="badge ok">✓ Token saved! Testing connection...</span>';
+  // Test the token by reading the repo
+  try {
+    const r = await fetch(`https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}`,
+      { headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github.v3+json' } });
+    if(r.ok){
+      document.getElementById('cfg-status').innerHTML = '<span class="badge ok">✓ Connected to GitHub! Data will sync automatically when you upload schedules.</span>';
+      renderAuthBar();
+    } else {
+      document.getElementById('cfg-status').innerHTML = '<span class="badge err">Token invalid or repo not found — check and try again.</span>';
+    }
+  } catch(e) {
+    document.getElementById('cfg-status').innerHTML = '<span class="badge err">Connection error — check your internet connection.</span>';
+  }
 }
 async function init(){
   try {
