@@ -213,6 +213,7 @@ tr:hover td{background:var(--bg)}
     <div class="ns">Analysis</div>
     <div class="ni" onclick="nav('conflicts')"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 3a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 8 4zm0 8a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/></svg><span>Conflicts</span></div>
     <div class="ni admin-nav" onclick="nav('understaffed')" id="ni-understaffed"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a3 3 0 1 0 0 6A3 3 0 0 0 8 1zM3 14s-1 0-1-1c0-2 2-4 6-4s6 2 6 4-1 1-1 1H3z"/><path d="M13 6l2 2-2 2M11 6l-2 2 2 2" stroke="currentColor" stroke-width="1.5" fill="none"/></svg><span>Understaffed</span></div>
+    <div class="ni" onclick="nav('openshifts')"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm1 4H7v3H4v2h3v3h2v-3h3V8H9V5z"/></svg><span>Open Shifts</span></div>
     <div class="ni" onclick="nav('tracker')"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M1 11l4-4 3 3 3-4 4 3V14H1v-3z"/></svg><span>Week-over-Week</span></div>
     <div class="ni admin-nav" onclick="nav('monthly')" id="ni-monthly"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h12v12H2V2zm1 3v8h10V5H3zm2-3V1h1v1H5zm5 0V1h1v1h-1zM3 7h2v2H3V7zm3 0h2v2H6V7zm3 0h2v2H9V7zm-6 3h2v2H3v-2zm3 0h2v2H6v-2zm3 0h2v2H9v-2z"/></svg><span>Monthly</span></div>
     <div class="ns admin-nav" id="ns-data">Data</div>
@@ -487,6 +488,51 @@ tr:hover td{background:var(--bg)}
     <div id="page-coaches" class="page">
       <div class="filters"><span class="fl">Week:</span><select id="cch-wk" onchange="renderCoach()" style="font-size:13px;padding:6px 10px;border-radius:var(--r);border:1px solid var(--border2);background:var(--surface);color:var(--text);font-family:inherit;font-weight:500"><option value="">— Select week —</option></select><span class="fl">Coach:</span><select id="cch-sel" onchange="renderCoach()"><option value="">All coaches</option></select></div>
       <div id="coach-content"></div>
+    </div>
+
+    <div id="page-openshifts" class="page">
+      <div class="card">
+        <div class="ch" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+          <h3>Open Shifts Needing Coverage</h3>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <button class="btn sm primary" onclick="copyOpenShifts()" style="font-size:12px">📋 Copy to Clipboard</button>
+          </div>
+        </div>
+        <!-- Filters -->
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:12px 20px;border-bottom:1px solid var(--border);background:var(--surface2)">
+          <select id="os-wk" onchange="renderOpenShifts()" style="font-size:13px;padding:6px 10px;border-radius:var(--r);border:1px solid var(--border2);background:var(--surface);color:var(--text);font-family:inherit">
+            <option value="">— Select week —</option>
+          </select>
+          <select id="os-day" onchange="renderOpenShifts()" style="font-size:13px;padding:6px 10px;border-radius:var(--r);border:1px solid var(--border2);background:var(--surface);color:var(--text);font-family:inherit">
+            <option value="">— All Days —</option>
+            <option>Monday</option><option>Tuesday</option><option>Wednesday</option>
+            <option>Thursday</option><option>Friday</option><option>Saturday</option><option>Sunday</option>
+          </select>
+          <select id="os-market" onchange="renderOpenShifts()" style="font-size:13px;padding:6px 10px;border-radius:var(--r);border:1px solid var(--border2);background:var(--surface);color:var(--text);font-family:inherit">
+            <option value="">— All Markets —</option>
+            <option value="AR">Arkansas (AR)</option>
+            <option value="CT">Connecticut (CT)</option>
+            <option value="MA">Massachusetts (MA)</option>
+            <option value="RI">Rhode Island (RI)</option>
+            <option value="TN">Tennessee (TN)</option>
+          </select>
+          <select id="os-coach" onchange="renderOpenShifts()" style="font-size:13px;padding:6px 10px;border-radius:var(--r);border:1px solid var(--border2);background:var(--surface);color:var(--text);font-family:inherit">
+            <option value="">— All Coaches —</option>
+          </select>
+          <select id="os-manager" onchange="renderOpenShifts()" style="font-size:13px;padding:6px 10px;border-radius:var(--r);border:1px solid var(--border2);background:var(--surface);color:var(--text);font-family:inherit">
+            <option value="">— All Managers —</option>
+          </select>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer">
+            <input type="checkbox" id="os-missing-only" onchange="renderOpenShifts()" style="accent-color:var(--mg)">
+            Missing schedules only
+          </label>
+        </div>
+        <div class="cb" style="padding:0">
+          <div id="openshifts-content"></div>
+        </div>
+      </div>
+      <!-- Copy text area (hidden) -->
+      <textarea id="os-copy-text" style="position:absolute;left:-9999px;top:-9999px" readonly></textarea>
     </div>
 
     <div id="page-conflicts" class="page">
@@ -1369,7 +1415,7 @@ async function finishLoad(res){
 
 function clearAll(){if(confirm('Clear all saved schedule history?')){weeks={};curWk=null;localStorage.removeItem('sw');renderAll();nav(isAdminUnlocked?'upload':'overview');}}
 
-const PTITLES={upload:'Upload Schedule',overview:'Overview',locations:'All Locations','loc-detail':'Location Detail',managers:'Manager Reports',coaches:'Coach Dashboard',conflicts:'Employee Conflicts',tracker:'Week-over-Week Tracker',setup:'SharePoint Setup',understaffed:'Understaffed Locations',monthly:'Monthly Overview',personnel:'Personnel Directory',locadmin:'Location Admin'};
+const PTITLES={upload:'Upload Schedule',overview:'Overview',locations:'All Locations','loc-detail':'Location Detail',managers:'Manager Reports',coaches:'Coach Dashboard',conflicts:'Employee Conflicts',tracker:'Week-over-Week Tracker',setup:'SharePoint Setup',understaffed:'Understaffed Locations',monthly:'Monthly Overview',personnel:'Personnel Directory',locadmin:'Location Admin',openshifts:'Open Shifts Needing Coverage'};
 
 // ── PIN Access Control ────────────────────────────────────────────────────────
 const ADMIN_PIN = '3833';
@@ -1548,6 +1594,7 @@ function nav(page){
   if(page==='managers'){popMgr();renderMgr();}
   if(page==='coaches'){popCoach();renderCoach();}
   if(page==='conflicts')renderConflicts();
+  if(page==='openshifts'){populatePageWkSelect('os-wk');populateOsFilters();renderOpenShifts();}
   if(page==='monthly'){populatePageWkSelect('mo-wk');renderMonthly();}
   if(page==='understaffed'){populatePageWkSelect('us-wk');renderUnderstaffed();}
   if(page==='tracker')renderTracker();
@@ -2767,6 +2814,270 @@ function getManager(locName, weekLabel){
 }
 
 // ── Personnel tab render ──────────────────────────────────────────────────────
+// ── Open Shifts ───────────────────────────────────────────────────────────────
+// Shows days with no coverage (missing schedule or understaffed) formatted
+// for copy-paste to team members to pick up shifts.
+
+function populateOsFilters(){
+  // Populate coach dropdown
+  const coachEl = document.getElementById('os-coach');
+  if(coachEl){
+    const curCoach = coachEl.value;
+    const coaches = [...new Set(Object.keys(LOC_DATA.locations).map(l => getCoach(l, getActiveWk()?.label)).filter(Boolean))].sort();
+    coachEl.innerHTML = '<option value="">— All Coaches —</option>' + coaches.map(c=>`<option value="${c}">${c}</option>`).join('');
+    if(curCoach) coachEl.value = curCoach;
+  }
+  // Populate manager dropdown
+  const mgrEl = document.getElementById('os-manager');
+  if(mgrEl){
+    const curMgr = mgrEl.value;
+    const mgrs = [...new Set(Object.keys(LOC_DATA.locations).map(l => getManager(l, getActiveWk()?.label)).filter(c=>c&&c!=='TBD'))].sort();
+    mgrEl.innerHTML = '<option value="">— All Managers —</option>' + mgrs.map(m=>`<option value="${m}">${m}</option>`).join('');
+    if(curMgr) mgrEl.value = curMgr;
+  }
+}
+
+function getActiveWk(){
+  const wkEl = document.getElementById('os-wk');
+  return wkEl?.value ? weeks[wkEl.value] : null;
+}
+
+function renderOpenShifts(){
+  const el = document.getElementById('openshifts-content');
+  if(!el) return;
+
+  const wk = getActiveWk();
+  if(!wk){
+    el.innerHTML = `<div style="padding:48px;text-align:center;color:var(--text2)">
+      <div style="font-size:40px;margin-bottom:12px">📋</div>
+      <div style="font-weight:600;color:var(--pu)">Select a week above to see open shifts</div>
+    </div>`;
+    return;
+  }
+
+  const filterDay     = document.getElementById('os-day')?.value || '';
+  const filterMarket  = document.getElementById('os-market')?.value || '';
+  const filterCoach   = document.getElementById('os-coach')?.value || '';
+  const filterMgr     = document.getElementById('os-manager')?.value || '';
+  const missingOnly   = document.getElementById('os-missing-only')?.checked || false;
+
+  const holidays = getWeekHolidays(wk.label);
+
+  // Build list of open shift situations
+  // An "open shift" is any day a location is open but has NO coverage at all
+  // or has a NO_COVERAGE / 2ME_GAP violation indicating understaffing
+  const openShifts = []; // { loc, day, date, type, hours, coach, manager, market }
+
+  // Parse Monday date from week label
+  const monMatch = wk.label.match(/Mon\s+(\d{1,2}\/\d{1,2}\/\d{4})/);
+  const monDate = monMatch ? new Date(monMatch[1]) : null;
+
+  function getDayDate(dayIdx){
+    if(!monDate) return '';
+    const d = new Date(monDate);
+    d.setDate(monDate.getDate() + dayIdx);
+    return `${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][dayIdx]} ${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
+  }
+
+  Object.keys(LOC_DATA.locations).forEach(loc => {
+    const market = loc.split('-')[0];
+    if(filterMarket && market !== filterMarket) return;
+
+    const coach   = getCoach(loc, wk.label) || 'TBD';
+    const manager = getManager(loc, wk.label) || 'TBD';
+
+    if(filterCoach && coach !== filterCoach) return;
+    if(filterMgr && manager !== filterMgr) return;
+
+    const ls = wk.sched[loc];
+    const info = getLocData(loc);
+
+    DAYS.forEach((day, di) => {
+      if(filterDay && day !== filterDay) return;
+
+      // Skip if store is closed this day
+      if(!info.hours?.[day]) return;
+
+      // Skip optional holiday with no schedule (not a violation)
+      const hol = holidays[day];
+      if(hol && hol.optional && (!ls || !(ls.days[day]?.length))) return;
+      if(hol && isLocClosedForHoliday(loc, hol)) return;
+
+      const shifts = ls?.days?.[day] || [];
+      const storeHours = info.hours[day];
+      const dayDate = getDayDate(di);
+
+      if(!ls || !shifts.length){
+        // Entire day missing
+        if(!missingOnly || true){ // missing = no schedule at all
+          openShifts.push({
+            loc, day, dayDate, market, coach, manager,
+            type: 'NO COVERAGE',
+            detail: `${storeHours.open} – ${storeHours.close}`,
+            urgent: true
+          });
+        }
+      } else {
+        // Check for understaffing gaps on 2ME stores
+        const is2me = info.is_2me;
+        if(is2me && !missingOnly){
+          const openT  = parseLocTime(storeHours.open);
+          const closeT = parseLocTime(storeHours.close);
+          let sl = new Date(openT);
+          const gaps = [];
+          while(sl < closeT){
+            const se = new Date(sl.getTime() + 30*60000);
+            const on = shifts.filter(s=>s.start<=sl && s.end>=se).length;
+            if(on < 2){
+              // Gap found — record start
+              if(!gaps.length || gaps[gaps.length-1].end < sl)
+                gaps.push({ start: new Date(sl), end: new Date(se) });
+              else
+                gaps[gaps.length-1].end = new Date(se);
+            }
+            sl = se;
+          }
+          if(gaps.length){
+            gaps.forEach(g => {
+              openShifts.push({
+                loc, day, dayDate, market, coach, manager,
+                type: 'COVERAGE GAP (2ME)',
+                detail: `${fT(g.start)} – ${fT(g.end)}`,
+                urgent: false
+              });
+            });
+          }
+        }
+      }
+    });
+  });
+
+  if(!openShifts.length){
+    el.innerHTML = `<div style="padding:48px;text-align:center;color:var(--text2)">
+      <div style="font-size:40px;margin-bottom:12px">✅</div>
+      <div style="font-weight:600;color:var(--green)">No open shifts found for the selected filters</div>
+      <div style="font-size:13px;margin-top:6px">All locations have coverage for the selected period</div>
+    </div>`;
+    // Clear copy text
+    const ct = document.getElementById('os-copy-text');
+    if(ct) ct.value = '';
+    return;
+  }
+
+  // Group by market then by day
+  const markets = ['AR','CT','MA','RI','TN'];
+  const MARKET_NAMES = {AR:'Arkansas',CT:'Connecticut',MA:'Massachusetts',RI:'Rhode Island',TN:'Tennessee'};
+  let html = '';
+  let copyText = `OPEN SHIFTS NEEDING COVERAGE
+`;
+  copyText += `Week: ${wk.label}
+`;
+  if(filterDay) copyText += `Day: ${filterDay}
+`;
+  copyText += `Generated: ${new Date().toLocaleDateString()}
+`;
+  copyText += `${'='.repeat(50)}
+
+`;
+
+  let totalCount = 0;
+
+  markets.forEach(mkt => {
+    const mktShifts = openShifts.filter(s => s.market === mkt);
+    if(!mktShifts.length) return;
+
+    html += `<div style="background:var(--pu-lt);border-left:4px solid var(--pu);padding:10px 20px;font-weight:700;font-size:13px;color:var(--pu);display:flex;align-items:center;justify-content:space-between">
+      <span>📍 ${MARKET_NAMES[mkt]} Market (${mkt})</span>
+      <span style="font-size:12px;font-weight:500">${mktShifts.length} open shift${mktShifts.length!==1?'s':''}</span>
+    </div>`;
+    copyText += `📍 ${MARKET_NAMES[mkt].toUpperCase()} MARKET
+${'─'.repeat(40)}
+`;
+
+    // Group by day within market
+    DAYS.forEach(day => {
+      const dayShifts = mktShifts.filter(s => s.day === day);
+      if(!dayShifts.length) return;
+
+      const dayDate = dayShifts[0].dayDate;
+      html += `<div style="padding:8px 20px 4px;background:#FAFAFA;border-bottom:1px solid var(--border)">
+        <span style="font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.05em">${dayDate}</span>
+      </div>`;
+      copyText += `
+  ${dayDate.toUpperCase()}
+`;
+
+      dayShifts.forEach(s => {
+        totalCount++;
+        const urgentBadge = s.urgent
+          ? `<span style="background:var(--red);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;margin-left:8px">URGENT</span>`
+          : `<span style="background:var(--amber);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;margin-left:8px">GAP</span>`;
+
+        html += `<div style="padding:10px 20px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap">
+          <div style="flex:1;min-width:200px">
+            <div style="font-weight:600;font-size:13px;color:var(--pu)">${s.loc} ${urgentBadge}</div>
+            <div style="font-size:12px;color:var(--text2);margin-top:2px">
+              🕐 ${s.detail} &nbsp;·&nbsp; Coach: <b>${s.coach}</b> &nbsp;·&nbsp; Mgr: <b>${s.manager}</b>
+            </div>
+          </div>
+        </div>`;
+
+        const urgentTag = s.urgent ? '[URGENT - NO COVERAGE]' : '[COVERAGE GAP]';
+        copyText += `    • ${s.loc} ${urgentTag}
+`;
+        copyText += `      Hours: ${s.detail}
+`;
+        copyText += `      Coach: ${s.coach} | Manager: ${s.manager}
+`;
+      });
+    });
+
+    copyText += '\n';
+  });
+
+  // Summary header
+  const summaryHtml = `<div style="padding:12px 20px;background:var(--surface2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+    <span style="font-size:13px;font-weight:600;color:var(--text)">📋 ${totalCount} open shift${totalCount!==1?'s':''} found</span>
+    <span style="font-size:12px;color:var(--text2)">Week: <b>${wk.label}</b></span>
+    ${filterDay?`<span style="font-size:12px;color:var(--text2)">Day: <b>${filterDay}</b></span>`:''}
+    ${filterMarket?`<span style="font-size:12px;color:var(--text2)">Market: <b>${filterMarket}</b></span>`:''}
+    ${filterCoach?`<span style="font-size:12px;color:var(--text2)">Coach: <b>${filterCoach}</b></span>`:''}
+  </div>`;
+
+  el.innerHTML = summaryHtml + html;
+
+  // Update copy text
+  const ct = document.getElementById('os-copy-text');
+  if(ct) ct.value = copyText.trim();
+}
+
+function parseLocTime(timeStr){
+  // Parse "9:45 AM" or "10 AM" into a Date
+  if(!timeStr) return new Date();
+  const m = timeStr.match(/(\d+)(?::(\d+))?\s*(AM|PM)/i);
+  if(!m) return new Date();
+  let h = parseInt(m[1]);
+  const min = parseInt(m[2]||'0');
+  const ap = m[3].toUpperCase();
+  if(ap==='PM' && h!==12) h+=12;
+  if(ap==='AM' && h===12) h=0;
+  const d = new Date(2000,0,1,h,min,0);
+  return d;
+}
+
+function copyOpenShifts(){
+  const ct = document.getElementById('os-copy-text');
+  if(!ct || !ct.value){ showToast('No open shifts to copy', true); return; }
+  // Try clipboard API first, fall back to execCommand
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(ct.value).then(()=>showToast('Copied to clipboard ✓')).catch(()=>{
+      ct.select(); document.execCommand('copy'); showToast('Copied to clipboard ✓');
+    });
+  } else {
+    ct.select(); document.execCommand('copy'); showToast('Copied to clipboard ✓');
+  }
+}
+
 // ── Location Admin ────────────────────────────────────────────────────────────
 // Overrides stored in localStorage — merged on top of LOC_DATA at runtime
 let locOverrides = {};
