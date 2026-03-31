@@ -2826,17 +2826,19 @@ async function init(){
     await loadW();
     renderAll();
     updatePinState();
-    populateOvSelects(); // populate week dropdowns after data loads
-    // Navigate based on whether data was loaded
-    if(curWk){
-      nav('overview');
-      // Re-render overview after a tick to ensure selects are populated
-      setTimeout(()=>{ populateOvSelects(); renderOverview(); }, 150);
-    } else if(isAdminUnlocked){
-      nav('upload');
-    } else {
-      nav('overview');
-    }
+    populateOvSelects();
+    nav(curWk ? 'overview' : (isAdminUnlocked ? 'upload' : 'overview'));
+    // Retry render at 200ms, 600ms, and 1.5s to handle any timing issues
+    // This guarantees data shows even if GitHub load completes slightly late
+    [200, 600, 1500].forEach(delay => {
+      setTimeout(() => {
+        if(curWk){
+          populateOvSelects();
+          const active = document.querySelector('.page.active');
+          if(active?.id === 'page-overview') renderOverview();
+        }
+      }, delay);
+    });
   } catch(e) {
     console.error('Init error:', e);
     try { renderAll(); updatePinState(); nav('overview'); } catch(e2) {}
