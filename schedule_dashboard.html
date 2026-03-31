@@ -212,13 +212,13 @@ tr:hover td{background:var(--bg)}
     <div class="ni" onclick="nav('coaches')"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M1 14s-1 0-1-1 1-4 6-4h2c5 0 6 3 6 4s-1 1-1 1H1zm6-6a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/></svg><span>Coaches</span></div>
     <div class="ns">Analysis</div>
     <div class="ni" onclick="nav('conflicts')"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 3a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 8 4zm0 8a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/></svg><span>Conflicts</span></div>
-    <div class="ni" onclick="nav('understaffed')"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a3 3 0 1 0 0 6A3 3 0 0 0 8 1zM3 14s-1 0-1-1c0-2 2-4 6-4s6 2 6 4-1 1-1 1H3z"/><path d="M13 6l2 2-2 2M11 6l-2 2 2 2" stroke="currentColor" stroke-width="1.5" fill="none"/></svg><span>Understaffed</span></div>
+    <div class="ni admin-nav" onclick="nav('understaffed')" id="ni-understaffed"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a3 3 0 1 0 0 6A3 3 0 0 0 8 1zM3 14s-1 0-1-1c0-2 2-4 6-4s6 2 6 4-1 1-1 1H3z"/><path d="M13 6l2 2-2 2M11 6l-2 2 2 2" stroke="currentColor" stroke-width="1.5" fill="none"/></svg><span>Understaffed</span></div>
     <div class="ni" onclick="nav('tracker')"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M1 11l4-4 3 3 3-4 4 3V14H1v-3z"/></svg><span>Week-over-Week</span></div>
-    <div class="ni" onclick="nav('monthly')"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h12v12H2V2zm1 3v8h10V5H3zm2-3V1h1v1H5zm5 0V1h1v1h-1zM3 7h2v2H3V7zm3 0h2v2H6V7zm3 0h2v2H9V7zm-6 3h2v2H3v-2zm3 0h2v2H6v-2zm3 0h2v2H9v-2z"/></svg><span>Monthly</span></div>
-    <div class="ns">Data</div>
-    <div class="ni" onclick="nav('personnel')"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M6 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm-5 6s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1H1zm11-9a1 1 0 0 1 1 1v1h1a1 1 0 1 1 0 2h-1v1a1 1 0 1 1-2 0v-1h-1a1 1 0 1 1 0-2h1V6a1 1 0 0 1 1-1z"/></svg><span>Personnel</span></div>
-    <div class="ni" onclick="nav('upload')"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1l4 4H9v5H7V5H4L8 1zM2 12h12v2H2v-2z"/></svg><span>Upload Schedule</span></div>
-    <div class="ni" onclick="nav('setup')"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 2a5 5 0 1 1 0 10A5 5 0 0 1 8 3zm0 2a1 1 0 0 0-1 1v2.586l-1.707 1.707a1 1 0 1 0 1.414 1.414L8.707 9.707A1 1 0 0 0 9 9V6a1 1 0 0 0-1-1z"/></svg><span>Setup</span></div>
+    <div class="ni admin-nav" onclick="nav('monthly')" id="ni-monthly"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h12v12H2V2zm1 3v8h10V5H3zm2-3V1h1v1H5zm5 0V1h1v1h-1zM3 7h2v2H3V7zm3 0h2v2H6V7zm3 0h2v2H9V7zm-6 3h2v2H3v-2zm3 0h2v2H6v-2zm3 0h2v2H9v-2z"/></svg><span>Monthly</span></div>
+    <div class="ns admin-nav" id="ns-data">Data</div>
+    <div class="ni admin-nav" onclick="nav('personnel')"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M6 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm-5 6s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1H1zm11-9a1 1 0 0 1 1 1v1h1a1 1 0 1 1 0 2h-1v1a1 1 0 1 1-2 0v-1h-1a1 1 0 1 1 0-2h1V6a1 1 0 0 1 1-1z"/></svg><span>Personnel</span></div>
+    <div class="ni admin-nav" onclick="nav('upload')"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1l4 4H9v5H7V5H4L8 1zM2 12h12v2H2v-2z"/></svg><span>Upload Schedule</span></div>
+    <div class="ni admin-nav" onclick="nav('setup')"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 2a5 5 0 1 1 0 10A5 5 0 0 1 8 3zm0 2a1 1 0 0 0-1 1v2.586l-1.707 1.707a1 1 0 1 0 1.414 1.414L8.707 9.707A1 1 0 0 0 9 9V6a1 1 0 0 0-1-1z"/></svg><span>Setup</span></div>
   </nav>
   <div id="auth-bar" style="padding:12px 16px;border-top:1px solid rgba(255,255,255,.1);display:flex;flex-direction:column;gap:6px">
   <span style="font-size:11px;color:rgba(255,255,255,.3)">Loading...</span>
@@ -517,9 +517,9 @@ tr:hover td{background:var(--bg)}
     <svg viewBox="0 0 16 16" fill="currentColor"><path d="M1 14s-1 0-1-1 1-4 6-4h2c5 0 6 3 6 4s-1 1-1 1H1zm6-6a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/></svg>
     Coaches
   </button>
-  <button class="mn-item" id="mn-understaffed" onclick="mobileNav('understaffed')">
-    <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a3 3 0 1 0 0 6A3 3 0 0 0 8 1zM3 14s-1 0-1-1c0-2 2-4 6-4s6 2 6 4-1 1-1 1H3z"/><path d="M13 6l2 2-2 2M11 6l-2 2 2 2" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>
-    Staffing
+  <button class="mn-item" id="mn-conflicts" onclick="mobileNav('conflicts')">
+    <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 3a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 8 4zm0 8a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/></svg>
+    Conflicts
   </button>
   <button class="mn-item" id="mn-more" onclick="toggleMobileMore()">
     <svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 8a1 1 0 1 1 2 0 1 1 0 0 1-2 0zm4 0a1 1 0 1 1 2 0 1 1 0 0 1-2 0zm4 0a1 1 0 1 1 2 0 1 1 0 0 1-2 0z"/></svg>
@@ -541,7 +541,7 @@ tr:hover td{background:var(--bg)}
     <svg viewBox="0 0 16 16" fill="currentColor"><path d="M1 11l4-4 3 3 3-4 4 3V14H1v-3z"/></svg>
     Week-over-Week
   </div>
-  <div class="mmd-item" onclick="mobileNav('monthly')">
+  <div class="mmd-item admin-only" id="mmd-monthly" onclick="mobileNav('monthly')">
     <svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h12v12H2V2zm1 3v8h10V5H3zm2-3V1h1v1H5zm5 0V1h1v1h-1z"/></svg>
     Monthly
   </div>
@@ -801,9 +801,10 @@ const COACH_OVERRIDES = [
 const HOLIDAYS = [
   {
     name: 'Easter Sunday',
-    date: '04/05/2026',   // The Sunday that falls in the week of Mon 03/30 – Sun 04/05
+    date: '04/05/2026',
     day:  'Sunday',
-    closed: 'MALLS'       // ← Change to 'ALL', [], or ['LOC-NAME', ...] once confirmed
+    closed: [],        // No stores automatically closed
+    optional: true     // All stores have the OPTION to close — missing schedule = "Holiday – may be closed" not a violation
   }
 ];
 
@@ -1072,6 +1073,11 @@ function scoreLoc(locName,ls,weekLabel){
     // Skip scoring entirely if location is officially closed for a holiday
     const hol=holidays[day];
     if(hol&&isLocClosedForHoliday(locName,hol))return;
+    // For optional holidays — if no schedule submitted, treat as "may be closed" not a violation
+    if(hol&&hol.optional){
+      const shifts=ls?ls.days[day]:[];
+      if(!shifts||!shifts.length) return; // no penalty — store may have chosen to close
+    }
     const shifts=ls?ls.days[day]:[];
     if(!shifts||!shifts.length){
       if(LOC_DATA.locations[locName]?.hours[day]){total++;types['NO COVERAGE']=(types['NO COVERAGE']||0)+1;}return;
@@ -1300,12 +1306,9 @@ function updatePinState(){
   document.getElementById('pin-status-unlocked').style.display = isAdminUnlocked ? 'flex'  : 'none';
   const uploadBtn = document.getElementById('topbar-upload-btn');
   if(uploadBtn) uploadBtn.style.display = isAdminUnlocked ? '' : 'none';
-  // Show/hide Upload nav item and Personnel nav item for non-admins
-  document.querySelectorAll('.ni').forEach(ni => {
-    const onclick = ni.getAttribute('onclick') || '';
-    if(onclick.includes("nav('upload')") || onclick.includes("nav('personnel')") || onclick.includes("nav('setup')")){
-      ni.style.display = isAdminUnlocked ? '' : 'none';
-    }
+  // Show/hide all admin-only nav items and section headers
+  document.querySelectorAll('.admin-nav').forEach(el => {
+    el.style.display = isAdminUnlocked ? '' : 'none';
   });
   // Update mobile nav admin items
   updateMobileAdminItems();
@@ -1397,7 +1400,7 @@ shakeStyle.textContent = '@keyframes shake{0%,100%{transform:translateX(0)}20%,6
 document.head.appendChild(shakeStyle);
 
 // ── Mobile navigation ─────────────────────────────────────────────────────────
-const MOBILE_NAV_PAGES = ['overview','locations','coaches','understaffed'];
+const MOBILE_NAV_PAGES = ['overview','locations','coaches','conflicts'];
 
 function mobileNav(page){
   closeMobileMore();
@@ -1453,7 +1456,7 @@ document.addEventListener('click', e => {
 
 function nav(page){
   // Block protected pages for non-admins — show PIN modal instead
-  if(!isAdminUnlocked && ['upload','personnel','setup'].includes(page)){
+  if(!isAdminUnlocked && ['upload','personnel','setup','monthly','understaffed'].includes(page)){
     showPinModal(); return;
   }
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
@@ -1462,7 +1465,7 @@ function nav(page){
   document.querySelector(`.ni[onclick="nav('${page}')"]`)?.classList.add('active');
   document.getElementById('page-title').textContent=PTITLES[page]||page;
   // If no data loaded and not admin, stay on overview with empty state — never force to upload
-  if(!curWk && !isAdminUnlocked && !['overview','locations','managers','coaches','conflicts','understaffed','monthly','tracker'].includes(page)) return;
+  if(!curWk && !isAdminUnlocked && !['overview','locations','managers','coaches','conflicts','tracker'].includes(page)) return;
   // If no data and admin, redirect to upload
   if(!curWk && isAdminUnlocked && !['upload','personnel','setup'].includes(page)){ nav('upload'); return; }
   if(page==='overview')renderOverview();
@@ -1598,12 +1601,14 @@ function renderOverview(){
   if(holBanner){
     if(holDays.length){
       const holList=[...new Set(holDays.map(([,h])=>h.name))].join(' · ');
+      const hasOptional=holDays.some(([,h])=>h.optional);
       const affected=Object.keys(LOC_DATA.locations).filter(l=>holDays.some(([day,h])=>isLocClosedForHoliday(l,h))).length;
+      const optionalMsg=hasOptional?` · <strong>Some stores may close</strong> — missing schedules on holiday day are not penalized`:'';
       holBanner.innerHTML=`<div style="background:#FFF8E7;border:1px solid #F6C90E;border-radius:var(--rl);padding:12px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-        <span style="font-size:18px">🎄</span>
+        <span style="font-size:18px">🐣</span>
         <span style="font-size:13px;font-weight:700;color:#7C5C00">${holList}</span>
-        <span style="font-size:12px;color:#7C5C00">falls in this week — <strong>${affected}</strong> location${affected!==1?'s':''} closed, exempt from scoring on holiday day${holDays.length>1?'s':''}</span>
-        <span style="font-size:11px;color:#9A7A00;margin-left:auto">Closed day shown in location detail view</span>
+        <span style="font-size:12px;color:#7C5C00">falls in this week${affected>0?` — <strong>${affected}</strong> location${affected!==1?'s':''} closed`:''}${optionalMsg}</span>
+        <span style="font-size:11px;color:#9A7A00;margin-left:auto">Optional closure day — no compliance penalty</span>
       </div>`;
       holBanner.style.display='';
     } else {
@@ -1702,6 +1707,11 @@ function getUnderstaffedIssues(locName, ls, weekLabel) {
     // Skip if location is officially closed for a holiday
     const hol = holidays[day];
     if (hol && isLocClosedForHoliday(locName, hol)) return;
+    // Skip optional holiday days with no schedule — store may have chosen to close
+    if (hol && hol.optional) {
+      const shifts = ls.days[day] || [];
+      if (!shifts.length) return;
+    }
     const shifts = ls.days[day] || [];
     const dayHours = info.hours[day];
     if (!dayHours) return;
@@ -2210,16 +2220,20 @@ function showLoc(locName){
       <div class="sc" style="background:var(--surface2);font-size:11px;color:var(--text2);font-weight:500">Hours</div>
       ${DAYS.map(day=>{
         const hol=weekHols[day]&&isLocClosedForHoliday(locName,weekHols[day])?weekHols[day]:null;
+        const optHol=weekHols[day]&&weekHols[day].optional?weekHols[day]:null;
         const h=info.hours[day];
         if(hol)return`<div class="sc" style="background:#FFF8E7;font-size:10px;color:#7C5C00;font-weight:600">Closed<br>${hol.name}</div>`;
+        if(optHol)return`<div class="sc" style="background:#FFF8E7;font-size:10px;color:#7C5C00;font-weight:600">${h?h.open+'–'+h.close:'Closed'}<br><span style="font-size:9px">🐣 ${optHol.name}</span></div>`;
         return`<div class="sc" style="background:var(--surface2);font-size:11px;color:var(--text2)">${h?h.open+'–'+h.close:'Closed'}</div>`;
       }).join('')}
       ${emps.map(emp=>{
         let et=0;
         const cells=DAYS.map(day=>{
           const hol=weekHols[day]&&isLocClosedForHoliday(locName,weekHols[day])?weekHols[day]:null;
+          const optHol=weekHols[day]&&weekHols[day].optional?weekHols[day]:null;
           if(hol)return`<div class="sc shift" style="background:#FFF8E7;color:#7C5C00;font-size:11px;text-align:center;padding:6px 4px">🎄<br>Closed</div>`;
           const shifts=(ls.days[day]||[]).filter(s=>s.emp===emp);
+          if(!shifts.length&&optHol)return`<div class="sc shift" style="background:#FFFBF0;color:#7C5C00;font-size:10px;text-align:center;padding:4px">🐣<br>May be<br>closed</div>`;
           if(!shifts.length)return`<div class="sc shift off">OFF</div>`;
           const sh=shifts[0];et+=sh.hours;
           const viols=getViols(sh,day,locName,ls.days[day]||[]);
