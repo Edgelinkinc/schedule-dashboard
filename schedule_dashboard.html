@@ -282,40 +282,25 @@ tr:hover td{background:var(--bg)}
 
     <div id="page-setup" class="page">
   <div class="card" style="max-width:720px">
-    <div class="ch"><h3>GitHub Sync Setup</h3></div>
+    <div class="ch"><h3>SharePoint Sync</h3></div>
     <div class="cb">
-      <p style="font-size:13px;color:var(--text2);margin-bottom:20px;line-height:1.7">Connect the dashboard to your GitHub repository so schedule data syncs across all devices automatically. Takes about 3 minutes — do this once per device.</p>
-
-      <div style="counter-reset:step">
-        <div class="step-block">
-          <div class="step-num">1</div>
-          <div class="step-body">
-            <h4>Create a GitHub Personal Access Token</h4>
-            <p>Go to <a href="https://github.com/settings/tokens/new" target="_blank" style="color:var(--mg)">github.com/settings/tokens/new</a></p>
-            <ul style="margin:8px 0 8px 20px;font-size:13px;color:var(--text2);line-height:1.8">
-              <li><strong>Note:</strong> EdgeLink Schedule Dashboard</li>
-              <li><strong>Expiration:</strong> No expiration (or 1 year)</li>
-              <li><strong>Scopes:</strong> Check <code>repo</code> (full repository access)</li>
-            </ul>
-            <p>Click <strong>Generate token</strong> and <strong>copy it immediately</strong> — you won't see it again.</p>
-          </div>
-        </div>
-        <div class="step-block">
-          <div class="step-num">2</div>
-          <div class="step-body">
-            <h4>Enter your token below</h4>
-            <div style="display:grid;gap:10px;margin-top:12px">
-              <div>
-                <label style="font-size:12px;font-weight:500;color:var(--text2);display:block;margin-bottom:4px">GitHub Personal Access Token</label>
-                <input id="cfg-token" type="password" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" style="width:100%;padding:8px 12px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:'DM Mono',monospace">
-                <p style="font-size:11px;color:var(--text3);margin-top:4px">Stored only in your browser — never sent anywhere except GitHub's API.</p>
-              </div>
-            </div>
-            <button class="btn primary" style="margin-top:16px" onclick="saveConfig()">Save &amp; Connect</button>
-          </div>
+      <div style="background:var(--green-bg);border:1px solid var(--green);border-radius:var(--r);padding:16px 20px;display:flex;align-items:center;gap:14px;margin-bottom:20px">
+        <span style="font-size:28px">✅</span>
+        <div>
+          <div style="font-weight:700;color:var(--green);font-size:14px">Sync is fully configured</div>
+          <div style="font-size:13px;color:var(--text2);margin-top:3px">Schedule data syncs automatically to SharePoint via Power Automate. No setup needed — upload a schedule and it will be available on all devices instantly.</div>
         </div>
       </div>
-
+      <div style="font-size:13px;color:var(--text2);line-height:1.8">
+        <strong style="color:var(--pu)">How it works:</strong><br>
+        1. Upload a schedule file → data saves to SharePoint automatically<br>
+        2. Any device opening the dashboard loads the latest data from SharePoint<br>
+        3. Personnel changes also sync across all devices<br><br>
+        <strong style="color:var(--pu)">Flows used:</strong><br>
+        • <strong>Get Schedule Data</strong> — reads from SharePoint on load<br>
+        • <strong>Save Schedule Data</strong> — writes to SharePoint on upload
+      </div>
+      <button class="btn primary" style="margin-top:20px" onclick="testPAConnection()">Test Connection</button>
       <div id="cfg-status" style="margin-top:16px"></div>
     </div>
   </div>
@@ -579,127 +564,42 @@ tr:hover td{background:var(--bg)}
 
 // ── SharePoint / Graph API config ─────────────────────────────────────────────
 // Fill these in after Azure App Registration (see SETUP.md)
-// ── GitHub Sync Configuration ────────────────────────────────────────────────
-// Data is stored as a JSON file in your GitHub repository.
-// No external auth library needed — uses GitHub Personal Access Token.
-const GH_CONFIG = {
-  token:  '',   // GitHub Personal Access Token (saved in localStorage)
-  owner:  'edgelinkinc',
-  repo:   'schedule-dashboard',
-  file:   'schedule_data.json',
-  branch: 'main'
+// ── Power Automate Sync Configuration ────────────────────────────────────────
+// Data syncs via Power Automate flows connected to SharePoint
+// No auth needed — flows are set to "Anyone can trigger"
+const PA_CONFIG = {
+  getUrl:  'https://defaultebc8d7eeee3a4821b739b0b060e735.7f.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/28cf15738dfc47fe94ac9ffc8d404e49/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=UwHVk8DqNxEjw1G-gdERBgvmoupg4Wkniavf7MmKBF4',
+  saveUrl: 'https://defaultebc8d7eeee3a4821b739b0b060e735.7f.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/6ff4745b9ebb4306a1501d4a94dcf941/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=ieohxqhER0fg7f5vRktSj6EViadRrtIVpGZshosu7zI'
 };
 
-function loadGHConfig(){
-  try {
-    const saved = JSON.parse(localStorage.getItem('gh_config') || '{}');
-    if(saved.token) GH_CONFIG.token = saved.token;
-    if(saved.owner) GH_CONFIG.owner = saved.owner;
-    if(saved.repo)  GH_CONFIG.repo  = saved.repo;
-  } catch(e) {}
-}
-
-function saveGHConfig(){
-  localStorage.setItem('gh_config', JSON.stringify({
-    token: GH_CONFIG.token,
-    owner: GH_CONFIG.owner,
-    repo:  GH_CONFIG.repo
-  }));
-}
+function loadGHConfig(){} // kept for compatibility
+function saveGHConfig(){} // kept for compatibility
 
 function renderAuthBar(){
   const el = document.getElementById('auth-bar');
   if(!el) return;
-  if(GH_CONFIG.token){
-    el.innerHTML = `<span style="font-size:11px;color:rgba(100,255,150,.8)">✓ Sync connected</span>`;
-  } else {
-    el.innerHTML = `<span style="font-size:11px;color:rgba(255,255,255,.35)">Sync: not configured</span>`;
-  }
+  el.innerHTML = '<span style="font-size:11px;color:rgba(100,255,150,.8)">✓ SharePoint sync ready</span>';
 }
 
 async function initMsal(){
-  // No MSAL needed — using GitHub token auth instead
-  loadGHConfig();
+  // No MSAL needed — using Power Automate flows
   renderAuthBar();
 }
 
 // ── GitHub API helpers ────────────────────────────────────────────────────────
-// ── Get SHA only (needed for writes) — uses API with token ───────────────────
-async function ghGetSha(){
-  if(!GH_CONFIG.token) return null;
-  try {
-    const r = await fetch(
-      `https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/contents/${GH_CONFIG.file}`,
-      { headers: { Authorization: `token ${GH_CONFIG.token}`, Accept: 'application/vnd.github.v3+json' } }
-    );
-    if(!r.ok) return null;
-    const data = await r.json();
-    return data.sha || null;
-  } catch(e) { return null; }
-}
-
-// ── Read data via GitHub Pages URL (no CORS, no auth needed) ─────────────────
-async function ghGet(){
-  try {
-    // Read via GitHub Pages public URL — no API, no CORS issues, works on all networks
-    const pagesUrl = `https://${GH_CONFIG.owner}.github.io/${GH_CONFIG.repo}/${GH_CONFIG.file}?cb=${Date.now()}`;
-    const r = await fetch(pagesUrl);
-    if(!r.ok){
-      console.warn('GH Pages read failed, status:', r.status);
-      return { content: null, sha: null };
-    }
-    const content = await r.json();
-    // Get SHA separately only if we have a token (needed for writes)
-    const sha = GH_CONFIG.token ? await ghGetSha() : null;
-    return { content, sha };
-  } catch(e) { console.error('GH read error:', e); return { content: null, sha: null }; }
-}
-
-async function ghPut(payload, sha){
-  if(!GH_CONFIG.token) return false;
-  try {
-    const body = {
-      message: `Update schedule data ${new Date().toISOString().slice(0,10)}`,
-      content: btoa(unescape(encodeURIComponent(JSON.stringify(payload)))),
-      branch: GH_CONFIG.branch
-    };
-    if(sha) body.sha = sha;
-    const r = await fetch(
-      `https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/contents/${GH_CONFIG.file}`,
-      {
-        method: 'PUT',
-        headers: { Authorization: `token ${GH_CONFIG.token}`, Accept: 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      }
-    );
-    return r.ok;
-  } catch(e) { console.error('GH write error:', e); return false; }
-}
-
-// ── Load data from GitHub ─────────────────────────────────────────────────────
+// ── Power Automate: Load data from SharePoint ────────────────────────────────
 async function loadFromSP(){
-  if(!GH_CONFIG.token){ console.log('GH sync: no token configured'); return false; }
-  console.log('GH sync: loading from GitHub...');
-  const result = await ghGet();
-  if(!result){ console.warn('GH sync: ghGet returned null'); return false; }
-  if(!result.content){ console.log('GH sync: no data file yet'); return false; }
+  console.log('PA sync: loading from SharePoint via Power Automate...');
   try {
-    const data = result.content;
+    const r = await fetch(PA_CONFIG.getUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+    if(!r.ok){ console.warn('PA sync: get flow returned', r.status); return false; }
+    const data = await r.json();
     const ghWeeks = data.weeks || [];
-    // Safety check — never load from GitHub if it has no weeks
-    if(!ghWeeks.length){
-      console.warn('GH sync: GitHub file has no weeks — keeping local data');
-      return false;
-    }
-    // Only use GitHub data if it has same or more weeks than local
-    const localRaw = localStorage.getItem('sw');
-    const localWeeks = localRaw ? JSON.parse(localRaw) : [];
-    if(localWeeks.length > ghWeeks.length){
-      console.log(`GH sync: local has ${localWeeks.length} weeks, GitHub has ${ghWeeks.length} — keeping local and pushing to GitHub`);
-      // Push local data up to GitHub to sync it
-      setTimeout(()=>saveToSP(), 1000);
-      return false;
-    }
+    if(!ghWeeks.length){ console.log('PA sync: no weeks in SharePoint yet'); return false; }
     weeks = {};
     ghWeeks.forEach(w => {
       const sc = deSched(w.sched);
@@ -707,8 +607,8 @@ async function loadFromSP(){
     });
     if(Object.keys(weeks).length) curWk = Object.keys(weeks)[Object.keys(weeks).length - 1];
     sortWeeks();
-    console.log(`GH sync: loaded ${Object.keys(weeks).length} weeks from GitHub`);
-    showToast('Loaded from GitHub ✓');
+    console.log(`PA sync: loaded ${Object.keys(weeks).length} weeks from SharePoint`);
+    showToast('Loaded from SharePoint ✓');
     saveLocal();
     renderAll();
     populateOvSelects();
@@ -716,37 +616,81 @@ async function loadFromSP(){
     const pid = activePage?.id?.replace('page-','') || 'overview';
     nav(pid === 'upload' || !activePage ? 'overview' : pid);
     return true;
-  } catch(e) { console.error('GH load parse error:', e); return false; }
+  } catch(e){ console.error('PA sync load error:', e); return false; }
 }
 
-// ── Save data to GitHub ───────────────────────────────────────────────────────
-let _ghSha = null; // track current file SHA for updates
+// ── Power Automate: Save data to SharePoint ───────────────────────────────────
+let _ghSha = null; // kept for compatibility
 
 async function saveToSP(){
   saveLocal();
-  if(!GH_CONFIG.token){ showToast('Saved locally — sync not configured', true); return; }
   const weekCount = Object.keys(weeks).length;
-  if(!weekCount){ console.warn('saveToSP: no weeks to save — aborting'); return; }
-  console.log(`GH sync: saving ${weekCount} weeks to GitHub...`);
+  if(!weekCount){ console.warn('saveToSP: no weeks to save'); return; }
+  console.log(`PA sync: saving ${weekCount} weeks to SharePoint...`);
   try {
-    // Get current SHA for the update
-    const sha = await ghGetSha();
     const payload = {
       weeks: Object.values(weeks).map(w => ({ key: w.key, label: w.label, sched: serSched(w.sched) })),
       personnel: JSON.parse(localStorage.getItem('sp_personnel_v2') || '{}'),
       lastUpdated: new Date().toISOString()
     };
-    const ok = await ghPut(payload, sha);
-    if(ok){
-      console.log('GH sync: save successful — data now at GitHub Pages URL');
-      showToast('Saved & synced ✓ — all devices will see this on next load');
+    const r = await fetch(PA_CONFIG.saveUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data: JSON.stringify(payload) })
+    });
+    if(r.ok){
+      console.log('PA sync: saved to SharePoint successfully');
+      showToast('Saved & synced to SharePoint ✓');
       renderAuthBar();
     } else {
-      showToast('Sync failed — check token has repo write access', true);
+      console.error('PA sync save failed:', r.status);
+      showToast('Saved locally — SharePoint sync failed', true);
     }
-  } catch(e) {
-    console.error('Save to GH error:', e);
-    showToast('Saved locally — sync error: ' + e.message, true);
+  } catch(e){
+    console.error('PA sync save error:', e);
+    showToast('Saved locally — sync error', true);
+  }
+}
+
+async function ghGet(){ return null; } // kept for compatibility
+async function ghGetSha(){ return null; } // kept for compatibility
+async function ghPut(){ return false; } // kept for compatibility
+
+async function forceSyncFromGH(){
+  const statusEl = document.getElementById('sync-status');
+  if(statusEl) statusEl.textContent = '⏳ Pulling from SharePoint...';
+  try {
+    const r = await fetch(PA_CONFIG.getUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+    if(!r.ok){ 
+      if(statusEl) statusEl.textContent = `✗ Flow returned ${r.status} — check Power Automate`;
+      return;
+    }
+    const data = await r.json();
+    const paWeeks = data.weeks || [];
+    if(!paWeeks.length){
+      if(statusEl) statusEl.textContent = '⚠ No schedule data in SharePoint yet — upload a schedule first.';
+      return;
+    }
+    weeks = {};
+    paWeeks.forEach(w => {
+      const sc = deSched(w.sched);
+      weeks[w.key] = { key: w.key, label: w.label, sched: sc, conflicts: findConflicts(sc) };
+    });
+    if(Object.keys(weeks).length) curWk = Object.keys(weeks)[Object.keys(weeks).length - 1];
+    sortWeeks();
+    saveLocal();
+    renderAll();
+    populateOvSelects();
+    if(statusEl) statusEl.innerHTML = `<span style="color:var(--green)">✓ Loaded ${Object.keys(weeks).length} week(s) from SharePoint — ${data.lastUpdated?.slice(0,16)||''}</span>`;
+    showToast('Synced from SharePoint ✓');
+    nav('overview');
+  } catch(e){
+    console.error('Force sync error:', e);
+    if(statusEl) statusEl.textContent = '✗ Sync error: ' + e.message;
   }
 }
 
@@ -2894,32 +2838,26 @@ dz.addEventListener('dragleave',()=>dz.classList.remove('drag'));
 dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag');if(!isAdminUnlocked){showPinModal();return;}handleFile(e.dataTransfer.files[0]);});
 
 // Load saved config from localStorage
-function loadConfig(){
-  try{
-    loadGHConfig();
-    // Pre-fill setup form if on setup page
-    const tokenField = document.getElementById('cfg-token');
-    if(tokenField && GH_CONFIG.token) tokenField.value = GH_CONFIG.token;
-  }catch(e){}
-}
-async function saveConfig(){
-  const token = document.getElementById('cfg-token')?.value.trim();
-  if(!token){ alert('Please enter your GitHub Personal Access Token.'); return; }
-  GH_CONFIG.token = token;
-  saveGHConfig();
-  document.getElementById('cfg-status').innerHTML = '<span class="badge ok">✓ Token saved! Testing connection...</span>';
-  // Test the token by reading the repo
+function loadConfig(){ /* PA config is hardcoded — no setup needed */ }
+async function saveConfig(){ /* PA config is hardcoded — no setup needed */ }
+async function testPAConnection(){
+  const statusEl = document.getElementById('cfg-status');
+  if(statusEl) statusEl.innerHTML = '<span class="badge neutral">⏳ Testing connection...</span>';
   try {
-    const r = await fetch(`https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}`,
-      { headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github.v3+json' } });
+    const r = await fetch(PA_CONFIG.getUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
     if(r.ok){
-      document.getElementById('cfg-status').innerHTML = '<span class="badge ok">✓ Connected to GitHub! Data will sync automatically when you upload schedules.</span>';
-      renderAuthBar();
+      const data = await r.json();
+      const wkCount = data.weeks?.length || 0;
+      if(statusEl) statusEl.innerHTML = `<span class="badge ok">✓ Connected! SharePoint has ${wkCount} week(s) of data.</span>`;
     } else {
-      document.getElementById('cfg-status').innerHTML = '<span class="badge err">Token invalid or repo not found — check and try again.</span>';
+      if(statusEl) statusEl.innerHTML = `<span class="badge err">✗ Flow returned ${r.status} — check Power Automate</span>`;
     }
   } catch(e) {
-    document.getElementById('cfg-status').innerHTML = '<span class="badge err">Connection error — check your internet connection.</span>';
+    if(statusEl) statusEl.innerHTML = `<span class="badge err">✗ Connection error: ${e.message}</span>`;
   }
 }
 async function init(){
