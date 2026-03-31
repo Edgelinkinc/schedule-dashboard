@@ -2826,11 +2826,17 @@ async function init(){
     await loadW();
     renderAll();
     updatePinState();
-    populateOvSelects();
-    // Always start on overview — admins get redirected to upload only if no data
-    if(curWk) nav('overview');
-    else if(isAdminUnlocked) nav('upload');
-    else nav('overview'); // view-only with no data shows empty state
+    populateOvSelects(); // populate week dropdowns after data loads
+    // Navigate based on whether data was loaded
+    if(curWk){
+      nav('overview');
+      // Re-render overview after a tick to ensure selects are populated
+      setTimeout(()=>{ populateOvSelects(); renderOverview(); }, 150);
+    } else if(isAdminUnlocked){
+      nav('upload');
+    } else {
+      nav('overview');
+    }
   } catch(e) {
     console.error('Init error:', e);
     try { renderAll(); updatePinState(); nav('overview'); } catch(e2) {}
