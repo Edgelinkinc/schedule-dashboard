@@ -328,14 +328,19 @@ tr:hover td{background:var(--bg)}
         <p style="margin-top:8px;font-size:12px;color:var(--text3)">The file you download from your scheduling system each week</p>
       </div>
       <input type="file" id="file-input" accept=".xls,.xlsx" onchange="handleFile(this.files[0])">
+      <input type="file" id="import-input" accept=".json" onchange="importData(this.files[0])" style="display:none">
       <div id="hist-section" style="margin-top:28px;display:none">
         <h3 style="font-size:14px;font-weight:600;margin-bottom:10px">Loaded weeks (saved in browser)</h3>
         <div id="hist-list"></div>
         <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
-          <button class="btn sm primary" onclick="forceSyncFromGH()">↓ Pull from GitHub</button>
+          <button class="btn sm primary" onclick="exportData()" style="background:var(--pu);color:#fff;border-color:var(--pu)">↓ Export Data File</button>
+          <button class="btn sm" onclick="document.getElementById('import-input').click()">↑ Import Data File</button>
           <button class="btn sm" style="color:var(--red)" onclick="if(!isAdminUnlocked){showPinModal();return;}clearAll()">Clear all history</button>
         </div>
         <div id="sync-status" style="margin-top:10px;font-size:12px;color:var(--text2)"></div>
+        <div style="background:var(--pu-lt);border-radius:var(--r);padding:10px 14px;margin-top:12px;font-size:12px;color:var(--text2);line-height:1.6">
+          💡 <strong style="color:var(--pu)">How to share with your team:</strong> Click <em>Export Data File</em> after uploading a schedule → send the downloaded <code>.json</code> file via email or Teams → recipients click <em>Import Data File</em> to load it instantly.
+        </div>
       </div>
     </div>
 
@@ -619,25 +624,35 @@ async function initMsal(){
 }
 
 // ── GitHub API helpers ────────────────────────────────────────────────────────
-async function ghGet(){
+// ── Get SHA only (needed for writes) — uses API with token ───────────────────
+async function ghGetSha(){
   if(!GH_CONFIG.token) return null;
   try {
     const r = await fetch(
       `https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/contents/${GH_CONFIG.file}`,
       { headers: { Authorization: `token ${GH_CONFIG.token}`, Accept: 'application/vnd.github.v3+json' } }
     );
-    if(r.status === 404) return { content: null, sha: null };
     if(!r.ok) return null;
     const data = await r.json();
-    const sha = data.sha;
-    // Use the download_url to fetch raw content directly — avoids base64 decode issues with large files
-    const rawR = await fetch(data.download_url, {
-      headers: { Authorization: `token ${GH_CONFIG.token}` }
-    });
-    if(!rawR.ok) return null;
-    const content = await rawR.json();
+    return data.sha || null;
+  } catch(e) { return null; }
+}
+
+// ── Read data via GitHub Pages URL (no CORS, no auth needed) ─────────────────
+async function ghGet(){
+  try {
+    // Read via GitHub Pages public URL — no API, no CORS issues, works on all networks
+    const pagesUrl = `https://${GH_CONFIG.owner}.github.io/${GH_CONFIG.repo}/${GH_CONFIG.file}?cb=${Date.now()}`;
+    const r = await fetch(pagesUrl);
+    if(!r.ok){
+      console.warn('GH Pages read failed, status:', r.status);
+      return { content: null, sha: null };
+    }
+    const content = await r.json();
+    // Get SHA separately only if we have a token (needed for writes)
+    const sha = GH_CONFIG.token ? await ghGetSha() : null;
     return { content, sha };
-  } catch(e) { console.error('GH read error:', e); return null; }
+  } catch(e) { console.error('GH read error:', e); return { content: null, sha: null }; }
 }
 
 async function ghPut(payload, sha){
@@ -711,32 +726,93 @@ async function saveToSP(){
   saveLocal();
   if(!GH_CONFIG.token){ showToast('Saved locally — sync not configured', true); return; }
   const weekCount = Object.keys(weeks).length;
-  if(!weekCount){ console.warn('saveToSP: no weeks to save — aborting GitHub write'); return; }
+  if(!weekCount){ console.warn('saveToSP: no weeks to save — aborting'); return; }
   console.log(`GH sync: saving ${weekCount} weeks to GitHub...`);
   try {
-    const existing = await ghGet();
-    _ghSha = existing?.sha || null;
+    // Get current SHA for the update
+    const sha = await ghGetSha();
     const payload = {
       weeks: Object.values(weeks).map(w => ({ key: w.key, label: w.label, sched: serSched(w.sched) })),
       personnel: JSON.parse(localStorage.getItem('sp_personnel_v2') || '{}'),
       lastUpdated: new Date().toISOString()
     };
-    console.log(`GH sync: writing ${payload.weeks.length} weeks`);
-    const ok = await ghPut(payload, _ghSha);
+    const ok = await ghPut(payload, sha);
     if(ok){
-      const updated = await ghGet();
-      if(updated) _ghSha = updated.sha;
-      console.log('GH sync: save successful');
-      showToast('Saved & synced to GitHub ✓');
+      console.log('GH sync: save successful — data now at GitHub Pages URL');
+      showToast('Saved & synced ✓ — all devices will see this on next load');
       renderAuthBar();
     } else {
-      showToast('Sync failed — check console for details', true);
-      console.error('ghPut returned false');
+      showToast('Sync failed — check token has repo write access', true);
     }
   } catch(e) {
     console.error('Save to GH error:', e);
     showToast('Saved locally — sync error: ' + e.message, true);
   }
+}
+
+// ── Export / Import data file ─────────────────────────────────────────────────
+function exportData(){
+  if(!Object.keys(weeks).length){ alert('No schedule data loaded to export.'); return; }
+  const payload = {
+    weeks: Object.values(weeks).map(w => ({ key: w.key, label: w.label, sched: serSched(w.sched) })),
+    personnel: JSON.parse(localStorage.getItem('sp_personnel_v2') || '{}'),
+    exportedAt: new Date().toISOString(),
+    exportedBy: 'EdgeLink HR'
+  };
+  const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const date = new Date().toISOString().slice(0,10);
+  a.href = url;
+  a.download = `edgelink_schedule_data_${date}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast(`Exported ${payload.weeks.length} weeks ✓`);
+}
+
+function importData(file){
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      const incoming = data.weeks || [];
+      if(!incoming.length){ alert('No schedule weeks found in this file.'); return; }
+      // Merge with existing weeks — don't overwrite, add new ones
+      let added = 0;
+      const existingLabels = new Set(Object.values(weeks).map(w => w.label));
+      incoming.forEach(w => {
+        if(!existingLabels.has(w.label)){
+          const sc = deSched(w.sched);
+          weeks[w.key] = { key: w.key, label: w.label, sched: sc, conflicts: findConflicts(sc) };
+          added++;
+        }
+      });
+      // Import personnel if present and not already set
+      if(data.personnel && !localStorage.getItem('sp_personnel_v2')){
+        localStorage.setItem('sp_personnel_v2', JSON.stringify(data.personnel));
+        loadPersonnelOverrides();
+      }
+      sortWeeks();
+      saveLocal();
+      renderAll();
+      populateOvSelects();
+      document.getElementById('import-input').value = '';
+      const msg = added > 0
+        ? `Imported ${added} new week(s) ✓`
+        : 'All weeks already loaded — nothing new to import';
+      showToast(msg);
+      document.getElementById('sync-status').innerHTML =
+        `<span style="color:var(--green)">✓ ${msg} — Exported: ${data.exportedAt?.slice(0,16)||'unknown'}</span>`;
+      if(curWk) nav('overview');
+    } catch(err) {
+      alert('Could not read file — make sure it\'s a valid EdgeLink data export.');
+      console.error('Import error:', err);
+    }
+  };
+  reader.readAsText(file);
 }
 
 // ── Local storage fallback ────────────────────────────────────────────────────
@@ -1096,23 +1172,20 @@ function deSched(s){const o={};Object.entries(s).forEach(([l,ls])=>{o[l]={days:{
 
 async function forceSyncFromGH(){
   const statusEl = document.getElementById('sync-status');
-  if(!GH_CONFIG.token){
-    if(statusEl) statusEl.textContent = '✗ Sync not configured — go to Setup first.';
-    return;
-  }
-  if(statusEl) statusEl.textContent = '⏳ Pulling from GitHub...';
+  if(statusEl) statusEl.textContent = '⏳ Pulling from GitHub Pages...';
   try {
     const result = await ghGet();
-    if(!result){
-      if(statusEl) statusEl.textContent = '✗ Could not reach GitHub — check your internet connection.';
+    if(!result || !result.content){
+      if(statusEl) statusEl.textContent = '⚠ No schedule data found yet — upload a schedule first.';
       return;
     }
-    if(!result.content || !result.content.weeks?.length){
-      if(statusEl) statusEl.textContent = '⚠ No schedule data found in GitHub yet — upload a schedule first.';
+    const ghWeeks = result.content.weeks || [];
+    if(!ghWeeks.length){
+      if(statusEl) statusEl.textContent = '⚠ Data file exists but has no weeks.';
       return;
     }
     weeks = {};
-    result.content.weeks.forEach(w => {
+    ghWeeks.forEach(w => {
       const sc = deSched(w.sched);
       weeks[w.key] = { key: w.key, label: w.label, sched: sc, conflicts: findConflicts(sc) };
     });
@@ -1121,8 +1194,9 @@ async function forceSyncFromGH(){
     saveLocal();
     renderAll();
     populateOvSelects();
-    if(statusEl) statusEl.innerHTML = `<span style="color:var(--green)">✓ Loaded ${Object.keys(weeks).length} week(s) from GitHub — Last updated: ${result.content.lastUpdated?.slice(0,16)||'unknown'}</span>`;
-    showToast('Synced from GitHub ✓');
+    if(statusEl) statusEl.innerHTML = `<span style="color:var(--green)">✓ Loaded ${Object.keys(weeks).length} week(s) — Last updated: ${result.content.lastUpdated?.slice(0,16)||'unknown'}</span>`;
+    showToast('Synced ✓');
+    nav('overview');
   } catch(e) {
     console.error('Force sync error:', e);
     if(statusEl) statusEl.textContent = '✗ Sync error: ' + e.message;
