@@ -1180,8 +1180,12 @@ function getViols(shift,day,locName,all){
   }
   const s2=(locName==='MA-HOLYOKE');
   if(info.is_2me&&oT&&cT&&!(day==='Sunday'&&!s2)){
-    const ds=new Date(oT.getTime()+3600000),de=new Date(cT.getTime()-3600000);
-    let sl=new Date(ds);
+    // Single coverage allowed: 9:45 AM – 11:00 AM (opening window) and last hour of day
+    // 2ME double-coverage required: 11:00 AM through close-1hr
+    const elevenAM = new Date(oT); elevenAM.setHours(11,0,0,0);
+    const ds = new Date(Math.max(oT.getTime() + 3600000, elevenAM.getTime()));
+    const de = new Date(cT.getTime() - 3600000);
+    let sl = new Date(ds);
     while(sl<de){const se=new Date(sl.getTime()+30*60000);const on=all.filter(s=>s.start<=sl&&s.end>=se).length;if(on<2){viols.push({type:'2ME GAP',msg:`Only ${on} emp ${fT(sl)}-${fT(se)}`,sev:'err'});break;}sl=se;}
   }
   return viols;
@@ -1880,8 +1884,10 @@ function getUnderstaffedIssues(locName, ls, weekLabel) {
     }
 
     // 2ME double-coverage gap (skip Sunday unless Holyoke)
+    // Single coverage allowed: 9:45–11:00 AM and last hour
     if (info.is_2me && !(day === 'Sunday' && !sun2)) {
-      const ds = new Date(openT.getTime() + 3600000);
+      const elevenAM = new Date(openT); elevenAM.setHours(11,0,0,0);
+      const ds = new Date(Math.max(openT.getTime() + 3600000, elevenAM.getTime()));
       const de = new Date(closeT.getTime() - 3600000);
       let gapStart = null;
       let slot = new Date(ds);
@@ -2919,13 +2925,17 @@ function renderOpenShifts(){
         }
       } else {
         // Check for understaffing gaps on 2ME stores
+        // Single coverage allowed: 9:45–11:00 AM and last hour of day
         const is2me = info.is_2me;
         if(is2me && !missingOnly){
           const openT  = parseLocTime(storeHours.open);
           const closeT = parseLocTime(storeHours.close);
-          let sl = new Date(openT);
+          const elevenAM = new Date(openT); elevenAM.setHours(11,0,0,0);
+          const gapStart = new Date(Math.max(openT.getTime() + 3600000, elevenAM.getTime()));
+          const gapEnd   = new Date(closeT.getTime() - 3600000);
+          let sl = new Date(gapStart);
           const gaps = [];
-          while(sl < closeT){
+          while(sl < gapEnd){
             const se = new Date(sl.getTime() + 30*60000);
             const on = shifts.filter(s=>s.start<=sl && s.end>=se).length;
             if(on < 2){
