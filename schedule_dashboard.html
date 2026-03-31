@@ -670,8 +670,16 @@ async function loadFromSP(){
       weeks[w.key] = { key: w.key, label: w.label, sched: sc, conflicts: findConflicts(sc) };
     });
     if(Object.keys(weeks).length) curWk = Object.keys(weeks)[Object.keys(weeks).length - 1];
-    console.log(`GH sync: loaded ${Object.keys(weeks).length} weeks`);
+    sortWeeks();
+    console.log(`GH sync: loaded ${Object.keys(weeks).length} weeks, curWk=${curWk}`);
     showToast('Loaded from GitHub ✓');
+    // Render immediately as soon as data is ready — don't wait for init to finish
+    saveLocal();
+    renderAll();
+    populateOvSelects();
+    const activePage = document.querySelector('.page.active');
+    const pid = activePage?.id?.replace('page-','') || 'overview';
+    nav(pid === 'upload' || !activePage ? 'overview' : pid);
     return true;
   } catch(e) { console.error('GH load parse error:', e); return false; }
 }
