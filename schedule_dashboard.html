@@ -229,7 +229,7 @@ tr:hover td{background:var(--bg)}
     <span style="font-size:16px">🔒</span>
     <div>
       <div style="font-size:11px;font-weight:600;color:rgba(255,200,230,.7)">View Only</div>
-      <div style="font-size:10px;color:rgba(255,255,255,.3)">Tap to sign in</div>
+      <div style="font-size:10px;color:rgba(255,255,255,.3)">Admin? Tap to unlock</div>
     </div>
   </div>
   <div id="pin-status-unlocked" style="display:none;align-items:center;gap:8px">
@@ -1235,7 +1235,7 @@ async function finishLoad(res){
   showToast(isReplace?'Schedule replaced: '+res.label:'Schedule loaded: '+res.label);
 }
 
-function clearAll(){if(confirm('Clear all saved schedule history?')){weeks={};curWk=null;localStorage.removeItem('sw');renderAll();nav('upload');}}
+function clearAll(){if(confirm('Clear all saved schedule history?')){weeks={};curWk=null;localStorage.removeItem('sw');renderAll();nav(isAdminUnlocked?'upload':'overview');}}
 
 const PTITLES={upload:'Upload Schedule',overview:'Overview',locations:'All Locations','loc-detail':'Location Detail',managers:'Manager Reports',coaches:'Coach Dashboard',conflicts:'Employee Conflicts',tracker:'Week-over-Week Tracker',setup:'SharePoint Setup',understaffed:'Understaffed Locations',monthly:'Monthly Overview',personnel:'Personnel Directory'};
 
@@ -1320,7 +1320,7 @@ function lockDashboard(){
   const active = document.querySelector('.page.active');
   if(active){
     const pid = active.id.replace('page-','');
-    if(['upload','personnel','setup'].includes(pid)) nav(Object.keys(weeks).length ? 'overview' : 'upload');
+    if(['upload','personnel','setup'].includes(pid)) nav('overview');
   }
   showToast('Dashboard locked');
 }
@@ -1401,7 +1401,7 @@ document.addEventListener('click', e => {
 
 
 function nav(page){
-  // Block protected pages for non-admins
+  // Block protected pages for non-admins — show PIN modal instead
   if(!isAdminUnlocked && ['upload','personnel','setup'].includes(page)){
     showPinModal(); return;
   }
@@ -1410,7 +1410,10 @@ function nav(page){
   document.getElementById('page-'+page).classList.add('active');
   document.querySelector(`.ni[onclick="nav('${page}')"]`)?.classList.add('active');
   document.getElementById('page-title').textContent=PTITLES[page]||page;
-  if(!curWk&&page!=='upload'&&page!=='personnel'){nav('upload');return;}
+  // If no data loaded and not admin, stay on overview with empty state — never force to upload
+  if(!curWk && !isAdminUnlocked && !['overview','locations','managers','coaches','conflicts','understaffed','monthly','tracker'].includes(page)) return;
+  // If no data and admin, redirect to upload
+  if(!curWk && isAdminUnlocked && !['upload','personnel','setup'].includes(page)){ nav('upload'); return; }
   if(page==='overview')renderOverview();
   if(page==='locations'){popLocFilters();renderLocTable();}
   if(page==='managers'){popMgr();renderMgr();}
@@ -1454,7 +1457,19 @@ function renderOverview(){
   const wk1=s1?.value?weeks[s1.value]:null;
   const wk2=s2?.value?weeks[s2.value]:null;
   const w=wk2||wk1;
-  if(!w)return;
+  if(!w){
+    // Show friendly empty state — different message for admin vs view-only
+    const metricsEl=document.getElementById('ov-metrics');
+    if(metricsEl){
+      metricsEl.innerHTML=`<div style="grid-column:1/-1;background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:48px 32px;text-align:center">
+        <div style="font-size:48px;margin-bottom:16px">${isAdminUnlocked?'📂':'👀'}</div>
+        <h3 style="font-size:18px;font-weight:600;color:var(--pu);margin:0 0 8px">${isAdminUnlocked?'No schedule loaded yet':'No schedule data available'}</h3>
+        <p style="font-size:14px;color:var(--text2);margin:0 0 20px">${isAdminUnlocked?'Upload a schedule file to get started.':'Check back once a schedule has been uploaded by your HR team.'}</p>
+        ${isAdminUnlocked?`<button class="btn primary" onclick="nav('upload')" style="font-size:14px;padding:10px 24px">+ Upload Schedule</button>`:''}
+      </div>`;
+    }
+    return;
+  }
 
   // When overview week changes, reset all other tab selects so they re-sync on next visit
   const ovActiveKey=getOvActiveWkKey();
@@ -2802,12 +2817,14 @@ async function init(){
     await loadW();
     renderAll();
     updatePinState();
-    populateOvSelects(); if(curWk) nav('overview');
-    else if(!SP_CONFIG.clientId) nav('setup');
-    else nav('upload');
+    populateOvSelects();
+    // Always start on overview — admins get redirected to upload only if no data
+    if(curWk) nav('overview');
+    else if(isAdminUnlocked) nav('upload');
+    else nav('overview'); // view-only with no data shows empty state
   } catch(e) {
     console.error('Init error:', e);
-    try { renderAll(); updatePinState(); nav(Object.keys(weeks).length?'overview':'upload'); } catch(e2) {}
+    try { renderAll(); updatePinState(); nav('overview'); } catch(e2) {}
   }
 }
 // Wait for DOM + external scripts to be ready before initializing
