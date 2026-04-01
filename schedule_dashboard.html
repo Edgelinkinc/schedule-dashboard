@@ -1767,6 +1767,9 @@ function populateOvSelects(){
   s1.innerHTML=opts; s2.innerHTML=opts;
   if(cur1&&weeks[cur1])s1.value=cur1; else if(validWks.length>=2)s1.value=validWks[validWks.length-2].key; else if(validWks.length)s1.value=validWks[0].key;
   if(cur2&&weeks[cur2])s2.value=cur2; else if(validWks.length>=1)s2.value=validWks[validWks.length-1].key;
+  // Track the active overview week for tab sync
+  if(s2.value&&weeks[s2.value]) _lastOvWkKey=s2.value;
+  else if(s1.value&&weeks[s1.value]) _lastOvWkKey=s1.value;
   // Populate store dropdown
   const storeEl=document.getElementById('ov-store');
   if(storeEl){
@@ -2386,12 +2389,16 @@ function renderMissingWeekBlock(locs, label, cls, icon){
 }
 
 
+// Track the last overview week selected — used to sync all other tabs
+let _lastOvWkKey = null;
+
 function getOvActiveWkKey(){
   // Returns the key of the "primary" week shown on the overview (ov-wk2 preferred, then ov-wk1, then curWk)
   const s2=document.getElementById('ov-wk2');
   const s1=document.getElementById('ov-wk1');
-  if(s2?.value&&weeks[s2.value])return s2.value;
-  if(s1?.value&&weeks[s1.value])return s1.value;
+  if(s2?.value&&weeks[s2.value]){ _lastOvWkKey=s2.value; return s2.value; }
+  if(s1?.value&&weeks[s1.value]){ _lastOvWkKey=s1.value; return s1.value; }
+  if(_lastOvWkKey&&weeks[_lastOvWkKey]) return _lastOvWkKey;
   return curWk;
 }
 
@@ -2401,13 +2408,10 @@ function populatePageWkSelect(selId){
   const validWks=Object.values(weeks).filter(w=>w.label&&/^Mon\s+\d{1,2}\/\d{1,2}\/\d{4}\s*[–-]\s*Sun\s+\d{1,2}\/\d{1,2}\/\d{4}$/.test(w.label.trim()));
   sel.innerHTML='<option value="">— Select week —</option>'+
     validWks.map(w=>`<option value="${w.key}">${w.label}</option>`).join('');
-  if(cur&&weeks[cur])sel.value=cur;
-  else{
-    // Sync to whatever the overview's primary week is
-    const ovKey=getOvActiveWkKey();
-    if(ovKey&&weeks[ovKey])sel.value=ovKey;
-    else if(curWk&&weeks[curWk])sel.value=curWk;
-  }
+  // Always sync to the overview's primary week — ignore stale cur value
+  const ovKey = getOvActiveWkKey();
+  if(ovKey&&weeks[ovKey]) sel.value=ovKey;
+  else if(curWk&&weeks[curWk]) sel.value=curWk;
 }
 
 function getPageWk(selId){
