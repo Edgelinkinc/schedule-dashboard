@@ -652,8 +652,11 @@ function loadGHConfig(){} // kept for compatibility
 function saveGHConfig(){} // kept for compatibility
 
 function renderAuthBar(){
+  // Only update if loadW hasn't already set a status
   const el = document.getElementById('auth-bar');
   if(!el) return;
+  // Don't overwrite if loadW already set a meaningful status
+  if(el.innerHTML && !el.innerHTML.includes('Loading') && !el.innerHTML.includes('Syncing')) return;
   el.innerHTML = '<span style="font-size:11px;color:rgba(100,255,150,.8)">✓ SharePoint sync ready</span>';
 }
 
@@ -667,11 +670,16 @@ async function initMsal(){
 async function loadFromSP(){
   console.log('PA sync: loading from SharePoint via Power Automate...');
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12000); // 12s timeout
     const r = await fetch(PA_CONFIG.getUrl, {
       method: 'POST',
+      mode: 'cors',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({})
+      body: JSON.stringify({}),
+      signal: controller.signal
     });
+    clearTimeout(timeout);
     if(!r.ok){ console.warn('PA sync: get flow returned', r.status); return false; }
     const data = await r.json();
     const ghWeeks = data.weeks || [];
@@ -713,7 +721,14 @@ async function loadFromSP(){
     const pid = activePage?.id?.replace('page-','') || 'overview';
     nav(pid === 'upload' || !activePage ? 'overview' : pid);
     return true;
-  } catch(e){ console.error('PA sync load error:', e); return false; }
+  } catch(e){
+    if(e.name === 'AbortError'){
+      console.warn('PA sync: request timed out — loading from local storage');
+    } else {
+      console.error('PA sync load error:', e.message);
+    }
+    return false;
+  }
 }
 
 // ── Power Automate: Save data to SharePoint ───────────────────────────────────
@@ -735,6 +750,7 @@ async function saveToSP(){
     };
     const r = await fetch(PA_CONFIG.saveUrl, {
       method: 'POST',
+      mode: 'cors',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ data: JSON.stringify(payload) })
     });
@@ -1344,15 +1360,33 @@ async function forceSyncFromGH(){
 
 async function saveW(){await saveToSP();}
 async function loadW(){
-  const spLoaded=await loadFromSP();
+  // Update auth bar to show loading state
+  const authBar = document.getElementById('auth-bar');
+  if(authBar) authBar.innerHTML = '<span style="font-size:11px;color:rgba(255,200,230,.7)">⏳ Syncing...</span>';
+
+  const spLoaded = await loadFromSP();
+
   if(!spLoaded){
+    // SharePoint failed — load from localStorage
     try{
-      const s=localStorage.getItem('sw');if(!s)return;
-      JSON.parse(s).forEach(w=>{const sc=deSched(w.sched);weeks[w.key]={key:w.key,label:w.label,sched:sc,conflicts:findConflicts(sc)};});
-      const ks=Object.keys(weeks);if(ks.length)curWk=ks[ks.length-1];
-    }catch(e){}
+      const s=localStorage.getItem('sw');
+      if(s){
+        JSON.parse(s).forEach(w=>{const sc=deSched(w.sched);weeks[w.key]={key:w.key,label:w.label,sched:sc,conflicts:findConflicts(sc)};});
+        const ks=Object.keys(weeks);if(ks.length)curWk=ks[ks.length-1];
+        // Update auth bar to show offline mode
+        if(authBar) authBar.innerHTML = '<span style="font-size:11px;color:rgba(255,200,100,.8)">⚠ Offline — showing cached data</span>';
+      } else {
+        if(authBar) authBar.innerHTML = '<span style="font-size:11px;color:rgba(255,100,100,.8)">✗ Sync failed — no cached data</span>';
+      }
+    }catch(e){
+      if(authBar) authBar.innerHTML = '<span style="font-size:11px;color:rgba(255,100,100,.8)">✗ Load error</span>';
+    }
+  } else {
+    // Successful SharePoint sync
+    if(authBar) authBar.innerHTML = '<span style="font-size:11px;color:rgba(100,255,150,.8)">✓ SharePoint sync ready</span>';
   }
-  if(Object.keys(weeks).length)sortWeeks();
+
+  if(Object.keys(weeks).length) sortWeeks();
 }
 
 
@@ -3031,7 +3065,7 @@ function populateOsFilters(){
   const coachEl = document.getElementById('os-coach');
   if(coachEl){
     const curCoach = coachEl.value;
-    const coaches = [...new Set(Object.keys(LOC_DATA.locations).map(l => getCoach(l, getActiveWk()?.label)).filter(Boolean))].sort();
+    const coaches = [...new Set(Object.keys(LOC_DATA.locations).map(l => getCoach(l, getOsActiveWk()?.label)).filter(Boolean))].sort();
     coachEl.innerHTML = '<option value="">— All Coaches —</option>' + coaches.map(c=>`<option value="${c}">${c}</option>`).join('');
     if(curCoach) coachEl.value = curCoach;
   }
@@ -3039,13 +3073,13 @@ function populateOsFilters(){
   const mgrEl = document.getElementById('os-manager');
   if(mgrEl){
     const curMgr = mgrEl.value;
-    const mgrs = [...new Set(Object.keys(LOC_DATA.locations).map(l => getManager(l, getActiveWk()?.label)).filter(c=>c&&c!=='TBD'))].sort();
+    const mgrs = [...new Set(Object.keys(LOC_DATA.locations).map(l => getManager(l, getOsActiveWk()?.label)).filter(c=>c&&c!=='TBD'))].sort();
     mgrEl.innerHTML = '<option value="">— All Managers —</option>' + mgrs.map(m=>`<option value="${m}">${m}</option>`).join('');
     if(curMgr) mgrEl.value = curMgr;
   }
 }
 
-function getActiveWk(){
+function getOsActiveWk(){
   const wkEl = document.getElementById('os-wk');
   return wkEl?.value ? weeks[wkEl.value] : null;
 }
@@ -3054,7 +3088,7 @@ function renderOpenShifts(){
   const el = document.getElementById('openshifts-content');
   if(!el) return;
 
-  const wk = getActiveWk();
+  const wk = getOsActiveWk();
   if(!wk){
     el.innerHTML = `<div style="padding:48px;text-align:center;color:var(--text2)">
       <div style="font-size:40px;margin-bottom:12px">📋</div>
