@@ -676,7 +676,6 @@ async function loadFromSP(){
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({})
     });
-    clearTimeout(timeout);
     if(!r.ok){ console.warn('PA sync: get flow returned', r.status); return false; }
     const data = await r.json();
     const ghWeeks = data.weeks || [];
