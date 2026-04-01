@@ -670,14 +670,11 @@ async function initMsal(){
 async function loadFromSP(){
   console.log('PA sync: loading from SharePoint via Power Automate...');
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 12000); // 12s timeout
     const r = await fetch(PA_CONFIG.getUrl, {
       method: 'POST',
       mode: 'cors',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({}),
-      signal: controller.signal
+      body: JSON.stringify({})
     });
     clearTimeout(timeout);
     if(!r.ok){ console.warn('PA sync: get flow returned', r.status); return false; }
@@ -722,11 +719,7 @@ async function loadFromSP(){
     nav(pid === 'upload' || !activePage ? 'overview' : pid);
     return true;
   } catch(e){
-    if(e.name === 'AbortError'){
-      console.warn('PA sync: request timed out — loading from local storage');
-    } else {
-      console.error('PA sync load error:', e.message);
-    }
+    console.error('PA sync load error:', e.message);
     return false;
   }
 }
@@ -1063,6 +1056,17 @@ function parseWeekDate(label) {
 const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const DS=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 let weeks={}, curWk=null, locDetailFrom='locations';
+
+// Global violation color map — used in renderOverview and showLoc
+const VIOLATION_COLORS = {
+  '2ME GAP':'#dc2626',
+  'NO COVERAGE':'#b91c1c',
+  'SHORT SHIFT':'#d97706',
+  'LATE OPEN':'#d97706',
+  'EARLY CLOSE':'#d97706',
+  'OVERSTAFFED':'#2563eb',
+  'MGR REQUIRED DAY':'#7C3AED'
+};
 
 function pT(s){
   if(!s)return null;
@@ -1949,7 +1953,7 @@ function renderOverview(){
   // ── VIOLATIONS BARS ────────────────────────────────────────────────────────
   const allTypes=[...new Set([...Object.keys(curr.vt),...(prev?Object.keys(prev.vt):[])])];
   const mx=Math.max(...allTypes.map(t=>curr.vt[t]||0),1);
-  const vc={'2ME GAP':'#dc2626','NO COVERAGE':'#b91c1c','SHORT SHIFT':'#d97706','LATE OPEN':'#d97706','EARLY CLOSE':'#d97706','OVERSTAFFED':'#2563eb','MGR REQUIRED DAY':'#7C3AED'};
+  // vc is defined globally — see VIOLATION_COLORS below
   const violHTML=allTypes.sort((a,b)=>(curr.vt[b]||0)-(curr.vt[a]||0)).map(t=>{
     const n2=curr.vt[t]||0; const n1=prev?prev.vt[t]||0:null;
     const d=n1!==null?n2-n1:null;
@@ -1957,12 +1961,12 @@ function renderOverview(){
       <div class="bar-lbl">${t}</div>
       <div style="flex:1">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
-          <div class="bar-track" style="flex:1"><div class="bar-fill" style="width:${Math.round(n2/mx*100)}%;background:${vc[t]||'#6b7280'}"></div></div>
+          <div class="bar-track" style="flex:1"><div class="bar-fill" style="width:${Math.round(n2/mx*100)}%;background:${VIOLATION_COLORS[t]||'#6b7280'}"></div></div>
           <span style="font-size:12px;font-family:'DM Mono',monospace;width:26px;text-align:right">${n2}</span>
           ${d!==null?`<span style="font-size:11px;color:${d<0?'var(--green)':d>0?'var(--red)':'var(--text3)'};width:32px">${d>0?'▲':d<0?'▼':'='} ${Math.abs(d)}</span>`:''}
         </div>
         ${n1!==null?`<div style="display:flex;align-items:center;gap:6px">
-          <div class="bar-track" style="flex:1;opacity:.4"><div class="bar-fill" style="width:${Math.round(n1/mx*100)}%;background:${vc[t]||'#6b7280'}"></div></div>
+          <div class="bar-track" style="flex:1;opacity:.4"><div class="bar-fill" style="width:${Math.round(n1/mx*100)}%;background:${VIOLATION_COLORS[t]||'#6b7280'}"></div></div>
           <span style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;width:26px;text-align:right">${n1}</span>
           <span style="font-size:11px;color:var(--text3);width:32px">prev</span>
         </div>`:''}
@@ -2472,7 +2476,15 @@ function getActiveWk(){
 function showLoc(locName){
   const activePage=document.querySelector('.page.active');
   if(activePage)locDetailFrom=activePage.id.replace('page-','');
-  const w=getActiveWk();if(!w)return;
+  // Get week — try active tab's dropdown first, then curWk
+  let w = getActiveWk();
+  if(!w && curWk && weeks[curWk]) w = weeks[curWk];
+  if(!w){
+    // Last resort — use the most recent week
+    const wks = Object.keys(weeks);
+    if(wks.length) w = weeks[wks[wks.length-1]];
+  }
+  if(!w)return;
   const info=getLocData(locName);const ranks=getEffectiveRanks(locName);
   const ls=w.sched[locName];const sc=scoreLoc(locName,ls,w.label);
   const cols=7;
@@ -2508,7 +2520,7 @@ function showLoc(locName){
   } else {
     const empSet=new Set();DAYS.forEach(d=>(ls.days[d]||[]).forEach(s=>empSet.add(s.emp)));const emps=[...empSet].sort();
     if(sc.violations>0){
-      html+=`<div style="background:var(--red-lt);border:1px solid #fca5a5;border-radius:var(--r);padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span style="font-size:13px;font-weight:600;color:var(--red)">${sc.violations} violation${sc.violations>1?'s':''} found:</span>${Object.entries(sc.types).map(([t,n])=>`<span class="badge err" style="background:${vc[t]||'#dc2626'}">${t}: ${n}</span>`).join(' ')}</div>
+      html+=`<div style="background:var(--red-lt);border:1px solid #fca5a5;border-radius:var(--r);padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span style="font-size:13px;font-weight:600;color:var(--red)">${sc.violations} violation${sc.violations>1?'s':''} found:</span>${Object.entries(sc.types).map(([t,n])=>`<span class="badge err" style="background:${VIOLATION_COLORS[t]||'#dc2626'}">${t}: ${n}</span>`).join(' ')}</div>
     <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:8px 14px;margin-bottom:12px;font-size:11px;color:var(--text2);display:flex;gap:12px;flex-wrap:wrap;align-items:center">
       <span style="font-weight:600;color:var(--text)">Legend:</span>
       <span><b style="color:#b91c1c">NO COVERAGE</b> — no shifts submitted</span>
