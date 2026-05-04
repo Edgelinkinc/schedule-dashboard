@@ -3181,25 +3181,7 @@ function renderOpenShifts(){
           });
         }
       } else {
-        // Check for manager absent on required days
-        if(!missingOnly){
-          const rank = getEffectiveRanks(loc)[day] || 0;
-          if(rank >= 1 && rank <= 4){
-            const mgrPresent = isManagerPresent(loc, shifts, wk.label);
-            const weekKey2 = Object.keys(weeks).find(k=>weeks[k].label===wk.label) || null;
-            const absApproved = weekKey2 ? isAbsenceApproved(weekKey2, loc, day) : false;
-            if(!mgrPresent && !absApproved && manager !== 'TBD'){
-              openShifts.push({
-                loc, day, dayDate, market, coach, manager,
-                type: 'MGR ABSENT',
-                detail: `Rank ${rank} day — ${manager.split(' ').pop()} not on schedule`,
-                urgent: false,
-                mgrAbsent: true
-              });
-            }
-          }
-        }
-        // Check for understaffing gaps on 2ME stores
+        // Check for understaffing gaps on 2ME stores — only flag gaps 3+ hours
         // Single coverage allowed: 9:45–11:00 AM and last hour of day
         const is2me = info.is_2me;
         if(is2me && !missingOnly){
@@ -3214,24 +3196,22 @@ function renderOpenShifts(){
             const se = new Date(sl.getTime() + 30*60000);
             const on = shifts.filter(s=>s.start<=sl && s.end>=se).length;
             if(on < 2){
-              // Gap found — record start
-              if(!gaps.length || gaps[gaps.length-1].end < sl)
+              if(!gaps.length || gaps[gaps.length-1].end.getTime() < sl.getTime())
                 gaps.push({ start: new Date(sl), end: new Date(se) });
               else
                 gaps[gaps.length-1].end = new Date(se);
             }
             sl = se;
           }
-          if(gaps.length){
-            gaps.forEach(g => {
-              openShifts.push({
-                loc, day, dayDate, market, coach, manager,
-                type: 'COVERAGE GAP (2ME)',
-                detail: `${fT(g.start)} – ${fT(g.end)}`,
-                urgent: false
-              });
+          // Only flag gaps that are 3 hours (180 minutes) or more
+          gaps.filter(g => (g.end - g.start) >= 180*60000).forEach(g => {
+            openShifts.push({
+              loc, day, dayDate, market, coach, manager,
+              type: 'COVERAGE GAP (2ME)',
+              detail: `${fT(g.start)} – ${fT(g.end)}`,
+              urgent: false
             });
-          }
+          });
         }
       }
     });
@@ -3296,23 +3276,21 @@ ${'─'.repeat(40)}
         totalCount++;
         const badge = s.urgent
           ? `<span style="background:var(--red);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;margin-left:8px">URGENT</span>`
-          : s.mgrAbsent
-          ? `<span style="background:#7C3AED;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;margin-left:8px">MGR ABSENT</span>`
           : `<span style="background:var(--amber);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;margin-left:8px">GAP</span>`;
 
         html += `<div style="padding:10px 20px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap">
           <div style="flex:1;min-width:200px">
             <div style="font-weight:600;font-size:13px;color:var(--pu)">${s.loc} ${badge}</div>
             <div style="font-size:12px;color:var(--text2);margin-top:2px">
-              ${s.mgrAbsent ? '👤' : '🕐'} ${s.detail} &nbsp;·&nbsp; Coach: <b>${s.coach}</b> &nbsp;·&nbsp; Mgr: <b>${s.manager}</b>
+              🕐 ${s.detail} &nbsp;·&nbsp; Coach: <b>${s.coach}</b> &nbsp;·&nbsp; Mgr: <b>${s.manager}</b>
             </div>
           </div>
         </div>`;
 
-        const tag = s.urgent ? '[URGENT - NO COVERAGE]' : s.mgrAbsent ? '[MGR ABSENT - REQUIRED DAY]' : '[COVERAGE GAP]';
+        const tag = s.urgent ? '[URGENT - NO COVERAGE]' : '[COVERAGE GAP 3h+]';
         copyText += `    • ${s.loc} ${tag}
 `;
-        copyText += `      Detail: ${s.detail}
+        copyText += `      Hours: ${s.detail}
 `;
         copyText += `      Coach: ${s.coach} | Manager: ${s.manager}
 `;
@@ -3324,13 +3302,11 @@ ${'─'.repeat(40)}
 
   // Summary header
   const urgentCount  = openShifts.filter(s=>s.urgent).length;
-  const mgrAbsCount  = openShifts.filter(s=>s.mgrAbsent).length;
-  const gapCount     = openShifts.filter(s=>!s.urgent&&!s.mgrAbsent).length;
+  const gapCount     = openShifts.filter(s=>!s.urgent).length;
   const summaryHtml = `<div style="padding:12px 20px;background:var(--surface2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:16px;flex-wrap:wrap">
     <span style="font-size:13px;font-weight:600;color:var(--text)">📋 ${totalCount} item${totalCount!==1?'s':''} found</span>
     ${urgentCount?`<span style="background:var(--red);color:#fff;font-size:11px;font-weight:700;padding:2px 10px;border-radius:99px">${urgentCount} URGENT</span>`:''}
-    ${mgrAbsCount?`<span style="background:#7C3AED;color:#fff;font-size:11px;font-weight:700;padding:2px 10px;border-radius:99px">${mgrAbsCount} MGR ABSENT</span>`:''}
-    ${gapCount?`<span style="background:var(--amber);color:#fff;font-size:11px;font-weight:700;padding:2px 10px;border-radius:99px">${gapCount} GAP</span>`:''}
+    ${gapCount?`<span style="background:var(--amber);color:#fff;font-size:11px;font-weight:700;padding:2px 10px;border-radius:99px">${gapCount} GAP (3h+)</span>`:''}
     <span style="font-size:12px;color:var(--text2)">Week: <b>${wk.label}</b></span>
     ${filterDay?`<span style="font-size:12px;color:var(--text2)">Day: <b>${filterDay}</b></span>`:''}
     ${filterMarket?`<span style="font-size:12px;color:var(--text2)">Market: <b>${filterMarket}</b></span>`:''}
